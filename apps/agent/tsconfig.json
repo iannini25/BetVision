@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "baseUrl": ".",
+    "paths": {
+      "@betv/shared": ["../../packages/shared/src"],
+      "@betv/shared/*": ["../../packages/shared/src/*"]
+    }
+  },
+  "include": ["src/**/*.ts"]
+}

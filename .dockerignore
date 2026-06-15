@@ -1,0 +1,29 @@
+# Build context hygiene — keep host artifacts out of Linux images.
+# node_modules at every level: host (Windows) binaries must never leak into containers.
+**/node_modules
+**/.next
+**/dist
+**/.turbo
+**/coverage
+
+# VCS / local tooling
+.git
+.claude
+.agents
+.vscode
+.windsurf
+
+# Secrets and logs (containers get env via compose; .env.example is kept for reference)
+.env
+.env.*
+!.env.example
+**/*.log
+
+# Vendored anime.js clone — ground truth for the skill, not needed at runtime
+vendor
+
+# Root-only docs and design assets (not needed inside images)
+*.md
+BetV App.dc.html
+BetV-logo.png
+skills-lock.json

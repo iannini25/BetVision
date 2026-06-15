@@ -1,0 +1,39 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "preserve",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": [
+        "./*"
+      ],
+      "@betv/shared": [
+        "../../packages/shared/src"
+      ],
+      "@betv/shared/*": [
+        "../../packages/shared/src/*"
+      ],
+      "@betv/emails": [
+        "../../packages/emails/src"
+      ],
+      "@betv/emails/*": [
+        "../../packages/emails/src/*"
+      ]
+    },
+    "allowJs": true
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}

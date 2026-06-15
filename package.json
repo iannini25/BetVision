@@ -1,0 +1,24 @@
+{
+  "name": "betv",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --filter @betv/web dev",
+    "build": "pnpm --filter @betv/web build",
+    "dev:realtime": "pnpm --filter @betv/realtime dev",
+    "dev:agent": "pnpm --filter @betv/agent dev",
+    "db:generate": "pnpm --filter @betv/shared db:generate",
+    "db:migrate": "pnpm --filter @betv/shared db:migrate",
+    "db:seed": "tsx db/seed.ts",
+    "lint": "eslint .",
+    "typecheck": "pnpm --filter @betv/shared exec tsc --noEmit && pnpm --filter @betv/agent exec tsc --noEmit && pnpm --filter @betv/realtime exec tsc --noEmit && pnpm --filter @betv/web exec tsc --noEmit"
+  },
+  "dependencies": {
+    "argon2": "^0.44.0",
+    "drizzle-orm": "^0.33.0",
+    "pg": "^8.21.0",
+    "tsx": "^4.22.4"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.60.0"
+  }
+}

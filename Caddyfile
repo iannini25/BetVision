@@ -1,0 +1,8 @@
+{
+	auto_https off
+}
+
+:80 {
+	reverse_proxy /ws* realtime:4000
+	reverse_proxy web:3000
+}

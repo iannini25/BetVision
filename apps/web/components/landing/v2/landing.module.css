@@ -1,0 +1,861 @@
+/* Landing v2 — scoped styles. Nothing here leaks to other routes.
+   Brand tokens (--brand-1/2/3, --accent*, --bg-*) come from globals :root. */
+
+.root {
+  /* --font-editorial is provided by next/font (Instrument Serif) on this subtree */
+  --cyan: #38bdf8;
+  --cyan-hi: #22d3ee;
+  /* strong easings (emil/animations.dev) — built-ins are too weak */
+  --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-glass: cubic-bezier(0.32, 0.72, 0, 1);
+  position: relative;
+  background: var(--bg-deep);
+  color: var(--text-hi);
+  overflow-x: clip;
+}
+
+/* ---------- Display title system (Sora 700, refined + light sheen) ---------- */
+/* Reusable across every H1/H2. The sheen is a subtle white->grey vertical light
+   treatment (not decorative color), so the type reads "lit", not flat. Children
+   (.gradientWord / .editorialWord) override the clip with their own fill. */
+.displayTitle {
+  font-family: var(--font-display), 'Sora', sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 0.9;
+  text-wrap: balance;
+  color: #e9ecf4;
+}
+/* Light sheen (white -> grey) — apply to the text-BEARING element. On headings with direct
+   text, add it to the h1/h2; on the hero's word-mask spans, add it to each [data-word] span
+   (clip-text only reaches the element's own text, not nested children). */
+.displaySheen {
+  background: linear-gradient(177deg, #ffffff 0%, #dde1ec 52%, #b9bfd0 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Hero title only — Bricolage Grotesque Light: thin, modern, editorial. The deliberate
+   counterpoint to the heavy serif-italic of "no escuro". */
+.heroTitle {
+  font-family: var(--font-hero), var(--font-display), 'Sora', sans-serif;
+  font-weight: 300;
+  letter-spacing: -0.02em;
+  line-height: 1; /* room for descenders (g/p/q) — the word-mask boxes add bottom padding too */
+  text-wrap: balance;
+  color: #e9ecf4;
+}
+
+/* ---------- Typographic highlight system ---------- */
+/* Tier A — brand gradient (deliberate system, not decoration): product nouns = what it IS.
+   -webkit-text-fill-color makes it override a clipped parent (.displayTitle). */
+.gradientWord {
+  background: linear-gradient(105deg, #8b5cf6 0%, #a855f7 45%, #d946ef 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  /* subtle violet halo so it reads as "lit", not just colored */
+  filter: drop-shadow(0 0 24px rgba(168, 85, 247, 0.4));
+}
+
+/* Tier B — editorial serif italic: the negated / emotional words = what it's NOT.
+   Given more presence (size + brighter ink) per the protagonism direction. */
+.editorialWord {
+  font-family: var(--font-editorial), Georgia, serif;
+  font-style: italic;
+  font-weight: 400;
+  /* The italic-serif line is the BRIGHTEST + LARGEST element (reference hierarchy). */
+  color: #ffffff;
+  -webkit-text-fill-color: #ffffff;
+  letter-spacing: 0.005em;
+  font-size: 1.18em;
+  padding-right: 0.04em;
+  filter: drop-shadow(0 0 28px rgba(192, 132, 252, 0.35));
+}
+
+/* ---------- Single fixed page background (no per-section bg => no seams) ---------- */
+/* Continuous vertical wash — covers the whole viewport, so it can't seam between sections. */
+.bgBase {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(95% 60% at 50% -8%, rgba(124, 58, 237, 0.26) 0%, transparent 58%),
+    radial-gradient(70% 50% at 80% 108%, rgba(217, 70, 239, 0.14) 0%, transparent 60%),
+    linear-gradient(180deg, #0a0a18 0%, #07070f 48%, #090611 100%);
+}
+/* Mood glow whose hue is scrubbed by scroll, so each part of the page has a different colour
+   "mood" without any border — it's one element that never scrolls. */
+.bgMood {
+  position: absolute;
+  inset: -12% -12% 0 -12%;
+  background:
+    radial-gradient(46% 40% at 38% 26%, rgba(168, 85, 247, 0.2) 0%, transparent 66%),
+    radial-gradient(42% 38% at 70% 60%, rgba(124, 58, 237, 0.16) 0%, transparent 68%);
+  filter: blur(40px) hue-rotate(0deg);
+  will-change: filter, transform;
+}
+
+/* ---------- Portal / atmosphere ---------- */
+.portalGlow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(40% 50% at 60% 42%, rgba(168, 85, 247, 0.42) 0%, rgba(124, 58, 237, 0.18) 40%, transparent 72%),
+    radial-gradient(82% 92% at 55% 34%, rgba(124, 58, 237, 0.14) 0%, transparent 62%),
+    radial-gradient(46% 56% at 64% 48%, rgba(217, 70, 239, 0.16) 0%, transparent 66%);
+  filter: blur(8px);
+  will-change: transform, opacity;
+}
+
+.grid {
+  position: absolute;
+  inset: -20% 0 0 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(148, 163, 255, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 255, 0.06) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(circle at 60% 38%, #000 0%, transparent 62%);
+  -webkit-mask-image: radial-gradient(circle at 60% 38%, #000 0%, transparent 62%);
+  opacity: 0.5;
+}
+
+.vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  /* deep near-black falloff at the edges isolates the single light source */
+  background: radial-gradient(120% 90% at 50% 28%, transparent 48%, rgba(3, 4, 9, 0.72) 100%);
+}
+
+.noise {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.035;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ---------- Stat tile number: bold, with a cursor-tracking purple glow on hover ---------- */
+.statNum {
+  position: relative;
+  text-shadow: 0 0 22px rgba(168, 85, 247, 0.22);
+}
+.statNum::before {
+  content: '';
+  position: absolute;
+  inset: -25% -15%;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(60px 48px at var(--gx, 50%) var(--gy, 50%), rgba(168, 85, 247, 0.6) 0%, transparent 72%);
+  opacity: 0;
+  filter: blur(8px);
+  transition: opacity 0.16s ease-out;
+}
+.statNum:hover::before {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .statNum:hover::before { opacity: 0; }
+}
+
+/* ---------- Eye SVG data layer ---------- */
+.eyeRing {
+  filter: drop-shadow(0 0 12px rgba(168, 85, 247, 0.45));
+}
+.eyeDot {
+  filter: drop-shadow(0 0 8px rgba(74, 222, 128, 0.9));
+}
+
+@keyframes dotGlow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+.dotGlow {
+  animation: dotGlow 2.4s ease-in-out infinite;
+}
+
+/* ---------- Live chips ---------- */
+.chip {
+  background: rgba(139, 92, 246, 0.06);
+  border: 1px solid var(--line);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* ---------- Magnetic CTA ---------- */
+.magneticWrap {
+  display: inline-block;
+  will-change: transform;
+}
+/* Primary CTA — liquid glass: violet gradient with depth (inset highlight + gradient ring +
+   soft glow) and a specular sheen that sweeps across on hover. */
+.ctaPrimary {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  background: linear-gradient(135deg, #7c3aed 0%, #a855f7 50%, #d946ef 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.42),
+    inset 0 -3px 8px rgba(76, 29, 149, 0.55),
+    0 10px 30px -8px rgba(168, 85, 247, 0.6),
+    0 0 0 1px rgba(168, 85, 247, 0.45);
+}
+/* cursor-tracked specular highlight */
+.ctaPrimary::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(120px 60px at var(--mx, 50%) var(--my, 50%), rgba(255, 255, 255, 0.4), transparent 70%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+.ctaPrimary:hover::after { opacity: 1; }
+/* sheen sweep */
+.ctaPrimary::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 45%;
+  background: linear-gradient(100deg, transparent 0%, rgba(255, 255, 255, 0.5) 50%, transparent 100%);
+  transform: translateX(-220%) skewX(-16deg);
+  opacity: 0;
+  pointer-events: none;
+}
+@media (hover: hover) and (pointer: fine) {
+  .ctaPrimary:hover::before {
+    animation: ctaSheen 0.85s var(--ease-out-strong) forwards;
+  }
+}
+@keyframes ctaSheen {
+  0% { transform: translateX(-220%) skewX(-16deg); opacity: 0; }
+  22% { opacity: 0.9; }
+  100% { transform: translateX(340%) skewX(-16deg); opacity: 0; }
+}
+
+/* Secondary / ghost CTA — frosted liquid glass with a gradient hairline. */
+.ctaGlass {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  color: var(--text-hi);
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(14px) saturate(135%);
+  -webkit-backdrop-filter: blur(14px) saturate(135%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 8px 24px -14px rgba(0, 0, 0, 0.75);
+  transition: background-color 0.25s var(--ease-out-strong), box-shadow 0.25s var(--ease-out-strong);
+}
+.ctaGlass::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  /* soft neutral rim — same clean glass language as the nav (no bright purple edge) */
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0.05) 50%, rgba(255, 255, 255, 0.02) 100%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+@media (hover: hover) and (pointer: fine) {
+  .ctaGlass:hover {
+    background: rgba(255, 255, 255, 0.09);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 10px 28px -12px rgba(124, 58, 237, 0.4);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ctaPrimary:hover::before { animation: none; }
+}
+
+/* ---------- Scanline sweep on the portal ---------- */
+@keyframes scan {
+  0% { transform: translateY(-120%); opacity: 0; }
+  12% { opacity: 0.5; }
+  100% { transform: translateY(120%); opacity: 0; }
+}
+.scanline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 18%;
+  background: linear-gradient(to bottom, transparent, rgba(56, 189, 248, 0.12), transparent);
+  animation: scan 7s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* (Hero-local aurora/horizon/parallax removed — the page background is now one fixed layer.) */
+/* the eye "blooms like a planet" — strong soft glow behind the logo core */
+.eyeBloom {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 145%;
+  height: 145%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  background: radial-gradient(closest-side, rgba(168, 85, 247, 0.5) 0%, rgba(124, 58, 237, 0.18) 44%, transparent 72%);
+  filter: blur(26px);
+}
+/* radar/sonar "scanning" rings around the eye — reinforces vision / analysis / observing */
+.eyeRings {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+}
+.eyeRings::before,
+.eyeRings::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 46%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 1px solid rgba(168, 85, 247, 0.28);
+  transform: translate(-50%, -50%) scale(0.55);
+  opacity: 0;
+  animation: sonar 5.5s cubic-bezier(0.23, 1, 0.32, 1) infinite;
+}
+.eyeRings::after {
+  animation-delay: 2.75s;
+}
+@keyframes sonar {
+  0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+  12% { opacity: 0.55; }
+  100% { transform: translate(-50%, -50%) scale(1.7); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .eyeRings::before,
+  .eyeRings::after { animation: none; }
+}
+
+/* ---------- Floating glass nav pill ---------- */
+.navGlass {
+  position: relative;
+  /* Clean matte glass (reference style): a translucent dark base with a whisper of top sheen.
+     NO bright/coloured edge — a soft neutral rim, low contrast, natural. */
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045) 0%, rgba(255, 255, 255, 0.01) 55%, rgba(255, 255, 255, 0) 100%),
+    rgba(13, 15, 23, 0.52);
+  backdrop-filter: blur(20px) saturate(135%);
+  -webkit-backdrop-filter: blur(20px) saturate(135%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 14px 40px -20px rgba(0, 0, 0, 0.6);
+}
+.navGlass::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  /* soft neutral rim — brighter at the very top, fading down (no purple, low contrast) */
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.05) 45%, rgba(255, 255, 255, 0.02) 100%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* Segmented center control inside the nav (image-to-code refs: AB / creativly pill nav).
+   An inset track holding the section links as hoverable segments + a sliding active pill. */
+.navSegment {
+  display: none; /* hidden on mobile; re-shown at md (the JSX also gates with md:flex) */
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 9999px;
+  /* no inset track — the links float directly on the main glass pill (AB-style nav) */
+}
+@media (min-width: 768px) {
+  .navSegment {
+    display: inline-flex;
+  }
+}
+.navLink {
+  position: relative;
+  z-index: 1;
+  padding: 6px 13px;
+  border-radius: 9999px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-mid);
+  white-space: nowrap;
+  transition: color 0.22s var(--ease-out-strong);
+}
+.navLink:hover {
+  color: var(--text-hi);
+}
+/* the active/hover pill slides between segments (position driven by JS) — a solid, neutral,
+   slightly-raised "selected" pill (AB-style), not a brand wash. */
+.navPill {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 1px 3px -1px rgba(0, 0, 0, 0.3);
+  opacity: 0;
+  transition: opacity 0.25s var(--ease-out-strong), left 0.34s var(--ease-out-strong),
+    width 0.34s var(--ease-out-strong);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Faint divider before the primary nav CTA — sets it off as its own segment (AB-style). */
+.navDivider {
+  width: 1px;
+  align-self: stretch;
+  margin: 7px 5px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* Primary nav CTA — the ONE highlighted action: a clean brand-gradient pill that stands out
+   against the neutral nav (soft glow, no hard border). */
+.navCta {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 9999px;
+  padding: 8px 17px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: #fff;
+  background: linear-gradient(135deg, #7c3aed 0%, #a855f7 55%, #d946ef 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    0 6px 18px -6px rgba(168, 85, 247, 0.6);
+  transition: box-shadow 0.2s var(--ease-out-strong), transform 0.12s ease-out;
+}
+.navCta:hover {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.32), 0 9px 24px -6px rgba(168, 85, 247, 0.78);
+  transform: translateY(-1px);
+}
+.navCta:active {
+  transform: scale(0.97);
+}
+
+/* ---------- CTA arrow variant: "white orbe swallows the button" hover ----------
+   Layers (z): violet button base · white orbe ::before (z1, anchored right) · label (z2) ·
+   dark arrow (z3, always over the white). On hover the orbe expands to fill (violet -> white),
+   the label slides out + fades, and the arrow migrates to centre and grows. */
+.ctaArrow {
+  --arrow-d: 2.2rem;
+}
+/* override the primary sheen ::before -> the white orbe */
+.ctaArrow::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  left: auto;
+  bottom: auto;
+  width: var(--arrow-d);
+  height: var(--arrow-d);
+  transform: translateY(-50%);
+  background: #ffffff;
+  border-radius: 9999px;
+  opacity: 1;
+  z-index: 1;
+  animation: none !important;
+  transition: width 0.34s cubic-bezier(0.4, 0, 0.2, 1), height 0.34s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+}
+.ctaLabel {
+  position: relative;
+  z-index: 2;
+  transition: opacity 0.28s ease, transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.ctaArrowIcon {
+  position: absolute;
+  z-index: 3;
+  top: 50%;
+  right: calc(6px + (var(--arrow-d) - 1.15rem) / 2);
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  color: #0a0d0b;
+  transition: right 0.36s cubic-bezier(0.4, 0, 0.2, 1), transform 0.36s cubic-bezier(0.4, 0, 0.2, 1);
+}
+@media (hover: hover) and (pointer: fine) {
+  .ctaArrow:hover::before {
+    width: calc(100% - 12px);
+    height: calc(100% - 12px);
+  }
+  .ctaArrow:hover .ctaLabel {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+  .ctaArrow:hover .ctaArrowIcon {
+    right: calc(50% - 0.62rem);
+    transform: translateY(-50%) scale(1.35);
+  }
+  .ctaArrow:hover {
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.45), 0 0 24px rgba(255, 255, 255, 0.18),
+      0 12px 34px -10px rgba(168, 85, 247, 0.5);
+  }
+}
+
+/* ---------- Hero prediction preview (tab-switcher + live card) ---------- */
+.previewWrap {
+  width: 100%;
+}
+.previewTabs {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 9999px;
+  background: rgba(17, 23, 41, 0.45);
+  border: 1px solid var(--line);
+  backdrop-filter: blur(12px) saturate(130%);
+  -webkit-backdrop-filter: blur(12px) saturate(130%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+.previewTab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 9999px;
+  font-family: var(--font-mono), monospace;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-mid);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.2s ease, background-color 0.2s ease;
+}
+.previewTab:hover {
+  color: var(--text-hi);
+}
+.previewTabActive {
+  color: var(--text-hi);
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.38), rgba(217, 70, 239, 0.2));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 4px 14px -8px rgba(124, 58, 237, 0.6);
+}
+.previewCard {
+  position: relative;
+  margin-top: 14px;
+  border-radius: 18px;
+  padding: 18px;
+  background: linear-gradient(180deg, rgba(24, 32, 58, 0.55) 0%, rgba(11, 15, 28, 0.66) 100%);
+  backdrop-filter: blur(16px) saturate(130%);
+  -webkit-backdrop-filter: blur(16px) saturate(130%);
+  box-shadow: 0 30px 80px -30px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+  transition: transform 0.3s var(--ease-glass);
+  will-change: transform;
+}
+/* soft neutral rim (matches the page-wide glass language — clean, low contrast, no purple edge) */
+.previewCard::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.05) 45%, rgba(255, 255, 255, 0.02) 100%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+@media (max-width: 767px) {
+  .previewCard {
+    transform: none;
+  }
+}
+
+/* ---------- Shared matte-glass panel — the nav/hero card language, propagated page-wide ----------
+   The clean reference material: a translucent dark base, a whisper of top sheen, and a soft
+   NEUTRAL rim (low contrast, no coloured edge). Apply to any section card/panel so the whole
+   page speaks the same glass as the nav pill + hero eyebrow — natural borders, never marked.
+   Pair with a `rounded-*` radius on the element; the rim follows it via border-radius: inherit. */
+.glassPanel {
+  position: relative;
+  isolation: isolate;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045) 0%, rgba(255, 255, 255, 0.01) 55%, rgba(255, 255, 255, 0) 100%),
+    rgba(13, 15, 23, 0.5);
+  backdrop-filter: blur(16px) saturate(130%);
+  -webkit-backdrop-filter: blur(16px) saturate(130%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 18px 50px -28px rgba(0, 0, 0, 0.62);
+}
+.glassPanel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.05) 45%, rgba(255, 255, 255, 0.02) 100%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  z-index: 0;
+}
+/* opt-in lift: a card that gently rises + deepens its shadow on hover (pointer devices only) */
+@media (hover: hover) and (pointer: fine) {
+  .glassPanelHover {
+    transition: transform 0.3s var(--ease-out-strong), box-shadow 0.3s var(--ease-out-strong);
+  }
+  .glassPanelHover:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.1),
+      0 26px 64px -30px rgba(0, 0, 0, 0.7);
+  }
+}
+
+/* ---------- "Fake glass" fallback on touch / small screens ----------
+   Live backdrop-filter at scale janks on mobile WebKit / mid Android. Off touch-or-small
+   viewports we drop live blur and compensate with a more opaque fill — the look survives,
+   the cost doesn't reach the 11 sections. */
+@media (hover: none), (max-width: 767px) {
+  .navGlass,
+  .ctaGlass,
+  .previewTabs,
+  .previewCard,
+  .glassPanel,
+  .liveTag,
+  .chip {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+  .navGlass { background: rgba(8, 11, 20, 0.9); }
+  .ctaGlass { background: rgba(30, 36, 58, 0.72); }
+  .previewTabs { background: rgba(17, 23, 41, 0.85); }
+  .previewCard { background: linear-gradient(180deg, rgba(24, 32, 58, 0.93) 0%, rgba(11, 15, 28, 0.96) 100%); }
+  .glassPanel { background: linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.012) 100%), rgba(15, 19, 30, 0.9); }
+  .liveTag { background: linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%), rgba(20, 26, 46, 0.82); }
+  .chip { background: rgba(20, 26, 46, 0.82); }
+}
+
+/* ---------- Per-section atmosphere (layered gradients, no backdrop-filter) ----------
+   Violet-dominant; green/amber are accents only (never a wash). Static + cheap on every
+   device. `isolation` keeps the ::before behind the section's own content (z -1) without
+   escaping behind the page or the eye orb. */
+/* Per-section atmosphere is intentionally a NO-OP. The ENTIRE page background is one fixed
+   full-viewport layer (ReactiveBackground), so there are zero per-section seams and zero
+   lateral marks (the old per-section ::before was confined to max-width section boxes, which
+   created the side seams). Classes kept as no-ops so existing section markup stays valid;
+   per-section "mood" now comes from the fixed layer crossfading on scroll. */
+.atmos {
+  position: relative;
+}
+.atmosGreen,
+.atmosCalm,
+.atmosAmber,
+.atmosGrid {
+  /* no-op — background handled globally by the fixed layer */
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scanline,
+  .dotGlow {
+    animation: none !important;
+  }
+  .portalGlow { filter: none; }
+  .heroAurora,
+  .heroAurora::after { animation: none; }
+  .heroBgParallax { transform: none; transition: none; }
+  .previewCard { transform: none; transition: none; }
+}
+
+/* ---------- Hero highlight text — premium layered bloom (refines the glow above) ----------
+   A soft two-stop drop-shadow on the gradient + serif highlight words so "valor",
+   "informação", "no escuro" read as lit, not neon. Appended last so it wins the cascade. */
+.gradientWord {
+  filter: drop-shadow(0 0 26px rgba(168, 85, 247, 0.5)) drop-shadow(0 0 7px rgba(217, 70, 239, 0.32));
+}
+.editorialWord {
+  filter: drop-shadow(0 0 30px rgba(192, 132, 252, 0.45)) drop-shadow(0 0 9px rgba(255, 255, 255, 0.16));
+}
+
+/* ============================================================================
+   Hero eyebrow — "Editorial Premium Halo" (de-clichéd)
+   Frosted editorial glass + static gradient hairline + ONE travelling purple
+   spark on the bezel + a slow specular shine + a surgical green level-meter.
+   Motion is transform / opacity / background-position only (60fps, no layout).
+   No @property, no border-beam: the "orbiting light" is a transform-only spark,
+   so it renders identically on every browser and never silently freezes.
+   ============================================================================ */
+.liveTag {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  /* same clean matte glass as the nav — soft neutral edge, low contrast (no brand glow). */
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045) 0%, rgba(255, 255, 255, 0.01) 55%, rgba(255, 255, 255, 0) 100%),
+    rgba(13, 15, 23, 0.52);
+  backdrop-filter: blur(20px) saturate(135%);
+  -webkit-backdrop-filter: blur(20px) saturate(135%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 14px 40px -20px rgba(0, 0, 0, 0.5);
+}
+
+/* Static hairline (proven house mask-composite ring) — a soft NEUTRAL rim, brighter
+   at the top and fading down. Low contrast, no coloured edge: same clean glass as the
+   nav pill. Bounded, crafted, zero perpetual paint. */
+.liveTag::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.16) 0%,
+    rgba(255, 255, 255, 0.05) 45%,
+    rgba(255, 255, 255, 0.02) 100%
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Slow specular shine drifting across the glass — sits ABOVE the fill, under text. */
+.liveTag::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 40%;
+  z-index: 1;
+  background: linear-gradient(
+    100deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.13) 48%,
+    rgba(217, 70, 239, 0.07) 56%,
+    transparent 100%
+  );
+  transform: translateX(-160%) skewX(-14deg);
+  pointer-events: none;
+  animation: liveShine 8.5s var(--ease-out-strong, cubic-bezier(0.23, 1, 0.32, 1)) infinite;
+}
+@keyframes liveShine {
+  0%, 66%  { transform: translateX(-160%) skewX(-14deg); } /* long off-canvas hold */
+  100%     { transform: translateX(360%)  skewX(-14deg); }
+}
+
+/* ---------- Travelling brand spark on the bezel (replaces the border-beam) ----------
+   A 1px-inset square track; the spark is a tiny purple glow that runs the
+   perimeter via translate only. Crafted "point of light" with NO @property and
+   NO conic gradient, so it can never silently freeze on Firefox/old Safari. */
+.liveOrbit {
+  position: absolute;
+  inset: 1px;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 2;
+}
+.liveSpark {
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--brand-soft, #a78bfa);
+  box-shadow: 0 0 8px 1px rgba(168, 85, 247, 0.75);
+  offset-path: inset(0 round var(--radius-pill, 999px));
+  offset-distance: 0%;
+  animation: liveOrbitRun 9s linear infinite, liveSparkPulse 9s ease-in-out infinite;
+}
+@keyframes liveOrbitRun {
+  to { offset-distance: 100%; }
+}
+/* gentle brighten as it crosses the top edge, dim on the back stretch */
+@keyframes liveSparkPulse {
+  0%, 100% { opacity: 0.9; }
+  50%      { opacity: 0.45; }
+}
+
+/* ---------- Live meter (surgical green broadcast signal) ----------
+   ONE shared soft glow on the container (not per-bar) so 3 bars never bloom
+   into a green smear. Bars animate transform:scaleY only. */
+.liveMeter {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 11px;
+  filter: drop-shadow(0 0 5px rgba(34, 197, 94, 0.5));
+}
+.liveBar {
+  width: 2px;
+  height: 100%;
+  border-radius: 1px;
+  background: var(--accent-hi, #4ade80);
+  transform-origin: bottom center;
+  transform: scaleY(0.42); /* rest == keyframe floor (no dead value) */
+  animation: liveBeat 1.9s var(--ease-out-strong, cubic-bezier(0.23, 1, 0.32, 1)) infinite;
+}
+.liveBar:nth-child(1) { animation-delay: 0s; }
+.liveBar:nth-child(2) { animation-delay: 0.26s; }
+.liveBar:nth-child(3) { animation-delay: 0.52s; }
+@keyframes liveBeat {
+  0%, 100% { transform: scaleY(0.42); opacity: 0.78; }
+  45%      { transform: scaleY(1);    opacity: 1; }
+}
+
+/* ---------- Broadcast lower-third caption ---------- */
+.liveCaption {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  line-height: 1;
+}
+.liveEdition {
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-hi, #f4f6fb);
+}
+.liveDivider {
+  width: 1px;
+  height: 11px;
+  background: var(--line-strong, rgba(148, 163, 255, 0.18));
+}
+.liveKicker {
+  font-weight: 600;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--text-mid, #9aa3b8);
+}
+
+/* ---------- Reduced motion: calm everything, keep it legible & lit ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .liveTag::after { animation: none; opacity: 0; }
+  .liveSpark {
+    animation: none;
+    offset-distance: 12%; /* park the light on the top-right shoulder, still lit */
+    opacity: 0.9;
+  }
+  .liveBar { animation: none; transform: scaleY(0.7); opacity: 0.9; }
+  .liveBar:nth-child(2) { transform: scaleY(1); }
+}

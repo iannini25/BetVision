@@ -1,0 +1,143 @@
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+      - realtime
+
+  # One-shot: create schema (drizzle push) + seed, then exit. Gates the app services.
+  migrate:
+    image: betv-agent:local
+    environment:
+      - DATABASE_URL=postgresql://betv:betv_secret@postgres:5432/betv
+      - NODE_ENV=production
+      - TZ=UTC
+    working_dir: /app
+    command:
+      - sh
+      - -c
+      - "cd /app/packages/shared && pnpm exec drizzle-kit push --force && cd /app && node --import tsx db/seed.ts"
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    restart: unless-stopped
+    environment:
+      - PORT=3000
+      - DATABASE_URL=postgresql://betv:betv_secret@postgres:5432/betv
+      - REDIS_URL=redis://redis:6379
+      - AUTH_SESSION_SECRET=dev-secret-change-me-in-production-64-chars-minimum-for-security
+      - APP_URL=http://localhost
+      - DATA_PROVIDER=mock
+      - NODE_ENV=production
+      - TZ=UTC
+    expose:
+      - "3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  realtime:
+    build:
+      context: .
+      dockerfile: apps/realtime/Dockerfile
+    restart: unless-stopped
+    environment:
+      - PORT=4000
+      - DATABASE_URL=postgresql://betv:betv_secret@postgres:5432/betv
+      - NODE_ENV=production
+      - TZ=UTC
+    expose:
+      - "4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  agent:
+    image: betv-agent:local
+    build:
+      context: .
+      dockerfile: apps/agent/Dockerfile
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql://betv:betv_secret@postgres:5432/betv
+      - REDIS_URL=redis://redis:6379
+      - DATA_PROVIDER=mock
+      - NODE_ENV=production
+      - TZ=UTC
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: betv
+      POSTGRES_PASSWORD: betv_secret
+      POSTGRES_DB: betv
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    expose:
+      - "5432"
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U betv"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # noeviction: BullMQ requires it so queued jobs are never evicted under memory pressure.
+    command: redis-server --maxmemory 256mb --maxmemory-policy noeviction
+    volumes:
+      - redis_data:/data
+    expose:
+      - "6379"
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    restart: unless-stopped
+    volumes:
+      - uptime_data:/app/data
+    ports:
+      - "3001:3001"
+
+volumes:
+  caddy_data:
+  caddy_config:
+  pg_data:
+  redis_data:
+  uptime_data:
