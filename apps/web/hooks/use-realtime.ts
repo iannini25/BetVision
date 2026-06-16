@@ -13,6 +13,8 @@ type UseRealtimeOptions = {
   matchIds?: number[]
   /** Assina a própria linha de pagamento (checkout): recebe payments_update só deste id. */
   paymentId?: string
+  /** Token assinado que autoriza a assinatura da linha de pagamento (verificado no servidor). */
+  paymentSubToken?: string
   onMessage?: (msg: RealtimeMessage) => void
 }
 
@@ -36,8 +38,8 @@ export function useRealtime(options?: UseRealtimeOptions) {
             ws.send(JSON.stringify({ type: 'subscribe', matchId: id }))
           }
         }
-        if (options?.paymentId) {
-          ws.send(JSON.stringify({ type: 'subscribe', topic: 'payment', id: options.paymentId }))
+        if (options?.paymentId && options?.paymentSubToken) {
+          ws.send(JSON.stringify({ type: 'subscribe', topic: 'payment', id: options.paymentId, token: options.paymentSubToken }))
         }
       }
 
@@ -59,7 +61,7 @@ export function useRealtime(options?: UseRealtimeOptions) {
     } catch {
       reconnectTimeoutRef.current = setTimeout(connect, 3000)
     }
-  }, [options?.matchIds, options?.paymentId, options?.onMessage])
+  }, [options?.matchIds, options?.paymentId, options?.paymentSubToken, options?.onMessage])
 
   useEffect(() => {
     connect()

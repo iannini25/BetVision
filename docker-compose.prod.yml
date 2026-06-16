@@ -46,8 +46,14 @@ services:
       # Webhook mock fica DESLIGADO na VPS por padrão; só liga com ALLOW_MOCK_PAYMENTS=true no .env (demo).
       - ALLOW_MOCK_PAYMENTS=${ALLOW_MOCK_PAYMENTS:-}
 
+  # Realtime verifica o token de assinatura da linha de pagamento — precisa do MESMO segredo do web.
+  realtime:
+    environment:
+      - AUTH_SESSION_SECRET=${AUTH_SESSION_SECRET:?set AUTH_SESSION_SECRET in the VPS .env}
+
   agent:
     environment:
+      - APP_URL=${APP_URL:-http://localhost}
       - DATA_PROVIDER=${DATA_PROVIDER:-mock}
       - SPORTMONKS_TOKEN=${SPORTMONKS_TOKEN:-}
       - WC_SEASON_ID=${WC_SEASON_ID:-26618}

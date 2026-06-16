@@ -1,12 +1,20 @@
 import { SignJWT, jwtVerify } from 'jose'
 import { cookies } from 'next/headers'
+import { signPaymentSubToken } from '@betv/shared/payment-sub-token'
 import { getSession } from './auth'
 
 // Cookie curto e ESCOPADO para o fluxo cadastro-first: permite criar/consultar o pagamento ANTES
 // de existir senha/sessão, sem dar acesso ao app. Nunca é tratado como sessão completa pelo middleware.
 const CHECKOUT_COOKIE = 'betv-checkout'
-const secret = new TextEncoder().encode(process.env.AUTH_SESSION_SECRET || 'dev-secret-change-me-in-production')
+const RAW_SECRET = process.env.AUTH_SESSION_SECRET || 'dev-secret-change-me-in-production'
+const secret = new TextEncoder().encode(RAW_SECRET)
 const SECURE_COOKIE = (process.env.APP_URL ?? '').startsWith('https://')
+const SUB_TOKEN_TTL_MS = 60 * 60 * 1000
+
+/** Token que autoriza o cliente a assinar a própria linha de pagamento no WebSocket. */
+export function mintPaymentSubToken(paymentId: string): string {
+  return signPaymentSubToken(paymentId, RAW_SECRET, SUB_TOKEN_TTL_MS)
+}
 
 type CheckoutPayload = { userId: string; scope: 'checkout' }
 

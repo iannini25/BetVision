@@ -13,6 +13,7 @@ import {
 import { getMercadoPagoClient, isMockMP, type MpPaymentRequest } from '@betv/shared/mercadopago/client'
 import { sendPaymentReceivedEmail, sendRenewalConfirmationEmail } from '@betv/emails'
 import { createAuthToken } from './auth.service'
+import { mintPaymentSubToken } from '@/lib/checkout-session'
 
 const { payments, subscriptions, users, paymentCards } = schema
 
@@ -31,6 +32,7 @@ export type BrickFormData = {
 export type CreatePaymentResult = {
   paymentId: string
   status: string
+  subToken: string
   pix?: { qrCodeBase64: string | null; copiaECola: string | null }
   boletoUrl?: string | null
 }
@@ -105,6 +107,7 @@ export async function createPayment(
   return {
     paymentId: row.id,
     status: res.status,
+    subToken: mintPaymentSubToken(row.id),
     pix: method === 'pix' ? { qrCodeBase64: res.pixQrCodeBase64 ?? null, copiaECola: res.pixQrCode ?? null } : undefined,
     boletoUrl: res.boletoUrl ?? null,
   }

@@ -18,6 +18,7 @@ export type PaymentSnapshot = {
   paymentId: string
   status: string
   method: string
+  subToken?: string
   pix?: { qrCodeBase64: string | null; copiaECola: string | null }
   boletoUrl?: string | null
 }
@@ -80,7 +81,13 @@ export function useCheckout(opts: { renew?: boolean } = {}) {
     },
     [paymentId, queryClient]
   )
-  useRealtime(useMemo(() => ({ paymentId: paymentId ?? undefined, onMessage }), [paymentId, onMessage]))
+  const subToken = status.data?.subToken
+  useRealtime(
+    useMemo(
+      () => ({ paymentId: paymentId ?? undefined, paymentSubToken: subToken, onMessage }),
+      [paymentId, subToken, onMessage]
+    )
+  )
 
   const createPayment = useCallback(
     async (method: PaymentMethod, form: BrickFormData): Promise<PaymentSnapshot> => {
@@ -96,6 +103,7 @@ export function useCheckout(opts: { renew?: boolean } = {}) {
         paymentId: data.paymentId,
         status: data.status,
         method,
+        subToken: data.subToken,
         pix: data.pix,
         boletoUrl: data.boletoUrl,
       }

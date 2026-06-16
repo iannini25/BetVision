@@ -69,6 +69,8 @@ services:
       - DATABASE_URL=postgresql://betv:betv_secret@postgres:5432/betv
       - NODE_ENV=production
       - TZ=UTC
+      # Mesmo segredo do web: verifica o token de assinatura da linha de pagamento no WS.
+      - AUTH_SESSION_SECRET=dev-secret-change-me-in-production-64-chars-minimum-for-security
     expose:
       - "4000"
     depends_on:
@@ -89,6 +91,8 @@ services:
       - DATA_PROVIDER=mock
       - NODE_ENV=production
       - TZ=UTC
+      # Link de renovação no e-mail de aviso de expiração (worker subscription-expiry).
+      - APP_URL=http://localhost
     depends_on:
       postgres:
         condition: service_healthy

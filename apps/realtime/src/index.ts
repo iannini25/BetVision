@@ -1,10 +1,12 @@
 import { WebSocketServer, WebSocket } from 'ws'
 import pg from 'pg'
 import pino from 'pino'
+import { verifyPaymentSubToken } from '@betv/shared/src/payment-sub-token'
 
 const logger = pino({ level: process.env.NODE_ENV === 'production' ? 'info' : 'debug' })
 const PORT = parseInt(process.env.PORT || '4000', 10)
 const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://betv:betv_secret@localhost:5432/betv'
+const AUTH_SECRET = process.env.AUTH_SESSION_SECRET || 'dev-secret-change-me-in-production'
 const RECONNECT_DELAY_MS = 2000
 
 const clients = new Set<WebSocket>()
@@ -84,7 +86,7 @@ async function connectListener(): Promise<void> {
 }
 
 function handleMessage(ws: WebSocket, raw: string): void {
-  let msg: { type?: string; topic?: string; id?: number | string }
+  let msg: { type?: string; topic?: string; id?: number | string; token?: string }
   try {
     msg = JSON.parse(raw)
   } catch {
@@ -95,14 +97,19 @@ function handleMessage(ws: WebSocket, raw: string): void {
     ws.send(JSON.stringify({ type: 'pong', timestamp: Date.now() }))
     return
   }
-  // Assinatura por pagamento: o checkout "escuta a própria linha" sem expor as dos outros.
+  // Assinatura por pagamento: só com token assinado da PRÓPRIA linha (verificado aqui).
   if (msg.type === 'subscribe' && msg.topic === 'payment' && msg.id != null) {
+    const id = String(msg.id)
+    if (!msg.token || !verifyPaymentSubToken(msg.token, id, AUTH_SECRET)) {
+      ws.send(JSON.stringify({ error: 'subscribe negado' }))
+      return
+    }
     let set = paymentSubs.get(ws)
     if (!set) {
       set = new Set()
       paymentSubs.set(ws, set)
     }
-    set.add(String(msg.id))
+    set.add(id)
   }
   // Demais subscribes (ex.: matchId) seguem cobertos pelo fan-out global das tabelas esportivas.
 }

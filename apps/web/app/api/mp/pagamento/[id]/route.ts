@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getPaymentActor } from '@/lib/checkout-session'
+import { getPaymentActor, mintPaymentSubToken } from '@/lib/checkout-session'
 import { db, schema } from '@/lib/db'
 import { eq } from 'drizzle-orm'
 
@@ -18,6 +18,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     paymentId: payment.id,
     status: payment.status,
     method: payment.method,
+    subToken: mintPaymentSubToken(payment.id), // p/ reassinar a linha no WS após refresh/resume
     pix:
       payment.method === 'pix'
         ? { qrCodeBase64: payment.pixQrCode, copiaECola: payment.pixCopiaECola }
