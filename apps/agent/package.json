@@ -17,6 +17,7 @@
     "pino": "^9.4.0",
     "pino-pretty": "^11.3.0",
     "@anthropic-ai/sdk": "^0.32.0",
+    "openai": "^4.0.0",
     "rss-parser": "^3.13.0",
     "@betv/shared": "workspace:*"
   },

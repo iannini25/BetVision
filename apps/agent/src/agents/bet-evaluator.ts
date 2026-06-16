@@ -1,5 +1,6 @@
 import type { Agent, AgentInput, AgentOutput } from './types'
 import { isMockMode } from './types'
+import { generateText } from '../lib/llm'
 import { calculateEdge, impliedProbability } from '../engine/value'
 
 type BetEvalInput = {
@@ -41,9 +42,6 @@ export class BetEvaluator implements Agent<BetEvalInput, BetEvalOutput> {
       }
     }
 
-    const { default: Anthropic } = await import('@anthropic-ai/sdk')
-    const client = new Anthropic({ apiKey: process.env.AI_API_KEY })
-
     const prompt = `Você é o Avaliador de Bet do BetV. O usuário colou uma odd e quer saber se há valor.
 
 Dados:
@@ -65,19 +63,18 @@ REGRAS:
 
 Responda em PT-BR, máximo 3 parágrafos.`
 
-    const response = await client.messages.create({
-      model: process.env.AI_MODEL_CHAT || 'claude-sonnet-4-6',
-      max_tokens: 500,
-      messages: [{ role: 'user', content: prompt }],
+    const { text: explanation, tokensUsed, provider } = await generateText({
+      prompt,
+      maxTokens: 500,
+      anthropicModel: process.env.AI_MODEL_CHAT || 'claude-sonnet-4-6',
+      openaiModel: process.env.OPENAI_MODEL_CHAT || 'gpt-4o-mini',
     })
-
-    const explanation = response.content[0].type === 'text' ? response.content[0].text : ''
-    const tokens = (response.usage?.input_tokens ?? 0) + (response.usage?.output_tokens ?? 0)
 
     return {
       result: { verdict, edge, impliedProb: implied, explanation },
-      tokensUsed: tokens,
+      tokensUsed,
       fromMock: false,
+      provider,
     }
   }
 }

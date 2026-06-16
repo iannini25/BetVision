@@ -1,5 +1,6 @@
 import type { Agent, AgentInput, AgentOutput } from './types'
 import { isMockMode } from './types'
+import { generateJson } from '../lib/llm'
 
 type PrematchInput = {
   homeTeam: string
@@ -40,10 +41,6 @@ export class PrematchAnalyst implements Agent<PrematchInput, PrematchOutput> {
       return { result: mockResult, tokensUsed: 0, fromMock: true }
     }
 
-    // Real AI call would go here
-    const { default: Anthropic } = await import('@anthropic-ai/sdk')
-    const client = new Anthropic({ apiKey: process.env.AI_API_KEY })
-
     const prompt = `Você é o analista pré-jogo do BetV, um copiloto de apostas esportivas focado na Copa do Mundo 2026.
 
 Analise o confronto:
@@ -60,16 +57,14 @@ REGRAS:
 
 Retorne em JSON: { "analysis": "texto", "keyFactors": ["fator1", "fator2", "fator3"] }`
 
-    const response = await client.messages.create({
-      model: process.env.AI_MODEL_ANALYSIS || 'claude-opus-4-8',
-      max_tokens: 800,
-      messages: [{ role: 'user', content: prompt }],
+    const { result: parsed, tokensUsed, provider } = await generateJson<PrematchOutput>({
+      prompt,
+      maxTokens: 800,
+      anthropicModel: process.env.AI_MODEL_ANALYSIS || 'claude-opus-4-8',
+      openaiModel: process.env.OPENAI_MODEL_ANALYSIS || 'gpt-4o',
+      json: true,
     })
 
-    const text = response.content[0].type === 'text' ? response.content[0].text : ''
-    const parsed = JSON.parse(text) as PrematchOutput
-    const tokens = (response.usage?.input_tokens ?? 0) + (response.usage?.output_tokens ?? 0)
-
-    return { result: parsed, tokensUsed: tokens, fromMock: false }
+    return { result: parsed, tokensUsed, fromMock: false, provider }
   }
 }

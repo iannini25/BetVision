@@ -54,5 +54,9 @@ services:
       - AI_MODEL_ANALYSIS=${AI_MODEL_ANALYSIS:-claude-opus-4-8}
       - AI_MODEL_CHAT=${AI_MODEL_CHAT:-claude-sonnet-4-6}
       - AI_EMBEDDING_MODEL=${AI_EMBEDDING_MODEL:-}
+      # OpenAI: fallback de resiliência da IA (vazio = desligado, Anthropic-only)
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_MODEL_ANALYSIS=${OPENAI_MODEL_ANALYSIS:-gpt-4o}
+      - OPENAI_MODEL_CHAT=${OPENAI_MODEL_CHAT:-gpt-4o-mini}
       - RESEND_API_KEY=${RESEND_API_KEY:-}
       - RESEND_FROM=${RESEND_FROM:-BetV <noreply@betv.online>}

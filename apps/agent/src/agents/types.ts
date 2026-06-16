@@ -8,6 +8,8 @@ export type AgentOutput<T = unknown> = {
   result: T
   tokensUsed: number
   fromMock: boolean
+  /** Which LLM produced this (when not from mock) — for observability/logs. */
+  provider?: 'anthropic' | 'openai'
 }
 
 export interface Agent<TInput, TOutput> {
@@ -16,5 +18,6 @@ export interface Agent<TInput, TOutput> {
 }
 
 export function isMockMode(): boolean {
-  return !process.env.AI_API_KEY
+  // Real AI runs if EITHER provider is configured (Anthropic primary, OpenAI fallback).
+  return !process.env.AI_API_KEY && !process.env.OPENAI_API_KEY
 }
