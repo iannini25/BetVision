@@ -41,6 +41,24 @@ export const SUBSCRIPTION_PRICE_BRL = 14.90
 export const SUBSCRIPTION_DAYS = 45
 export const EXPIRATION_WARNING_DAYS = 5
 
+/** O passe só pode ser renovado a partir de quando faltam estes dias para expirar. */
+export const RENEWAL_UNLOCK_DAYS = 2
+
+/**
+ * Taxas de recebimento do Mercado Pago, repassadas ao cliente (total = valor + taxa).
+ * Percentuais sobre o valor, exceto boleto (valor fixo em R$). Única fonte da verdade —
+ * o painel de taxa do checkout e o cálculo do total no backend leem daqui.
+ * `wallet` (saldo MP) não tem taxa publicada no briefing; usamos a de crédito por
+ * conservadorismo (nunca cobrar a menos). Confirmar quando a chave real entrar.
+ */
+export const MP_FEES = {
+  pix: 0.0099,
+  debit: 0.0199,
+  credit: 0.0498,
+  wallet: 0.0498,
+  boletoFixed: 3.49,
+} as const
+
 /**
  * Real Sportmonks data is used only when the mode is selected AND a token is present.
  * Single source of truth for the gate — the agent providers, workers, and the seed all

@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { isValidBrPhone } from './br-validators'
 
 export const loginSchema = z.object({
   email: z.string().email('E-mail inválido'),
@@ -42,6 +43,18 @@ export const createPaymentSchema = z.object({
   plan: z.enum(['45_days']),
 })
 
+export const cadastroSchema = z.object({
+  name: z.string().trim().min(2, 'Informe seu nome completo'),
+  email: z.string().email('E-mail inválido'),
+  phone: z.string().refine(isValidBrPhone, 'Telefone inválido — use (DDD) e o número completo'),
+  over18: z.boolean().refine((v) => v === true, 'Você precisa ter 18 anos ou mais'),
+})
+
+export const setPasswordSchema = z.object({
+  token: z.string().min(1),
+  password: z.string().min(6, 'Mínimo 6 caracteres'),
+})
+
 export type LoginInput = z.infer<typeof loginSchema>
 export type RegisterInput = z.infer<typeof registerSchema>
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>
@@ -49,3 +62,5 @@ export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>
 export type UpdateAccountInput = z.infer<typeof updateAccountSchema>
 export type ChatMessageInput = z.infer<typeof chatMessageSchema>
 export type CreatePaymentInput = z.infer<typeof createPaymentSchema>
+export type CadastroInput = z.infer<typeof cadastroSchema>
+export type SetPasswordInput = z.infer<typeof setPasswordSchema>
