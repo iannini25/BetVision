@@ -20,6 +20,10 @@ export const users = pgTable('users', {
   email: varchar('email', { length: 255 }).notNull().unique(),
   passwordHash: text('password_hash').notNull(),
   name: varchar('name', { length: 255 }).notNull(),
+  // Coletados no cadastro / pagamento; nullable para o usuário semeado e o fluxo legado.
+  phone: varchar('phone', { length: 20 }),
+  cpf: varchar('cpf', { length: 14 }),
+  mpCustomerId: varchar('mp_customer_id', { length: 255 }),
   emailVerificado: boolean('email_verificado').default(false).notNull(),
   criadoEm: timestamp('criado_em', { withTimezone: true }).defaultNow().notNull(),
   atualizadoEm: timestamp('atualizado_em', { withTimezone: true }).defaultNow().notNull(),
@@ -39,13 +43,29 @@ export const payments = pgTable('payments', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   mpPaymentId: varchar('mp_payment_id', { length: 255 }),
-  amount: real('amount').notNull(),
+  amount: real('amount').notNull(), // total cobrado (valor base + taxa)
+  feeAmount: real('fee_amount'), // taxa repassada ao cliente (net = amount - fee)
   status: varchar('status', { length: 30 }).notNull().default('pending'),
-  method: varchar('method', { length: 20 }).notNull().default('pix'),
-  pixQrCode: text('pix_qr_code'),
-  pixCopiaECola: text('pix_copia_e_cola'),
+  mpStatusDetail: varchar('mp_status_detail', { length: 60 }),
+  method: varchar('method', { length: 20 }).notNull().default('pix'), // pix|credit|debit|boleto|wallet
+  installments: integer('installments'),
+  pixQrCode: text('pix_qr_code'), // imagem (base64) do QR
+  pixCopiaECola: text('pix_copia_e_cola'), // código copia-e-cola
+  boletoUrl: text('boleto_url'),
+  paidAt: timestamp('paid_at', { withTimezone: true }),
   criadoEm: timestamp('criado_em', { withTimezone: true }).defaultNow().notNull(),
   atualizadoEm: timestamp('atualizado_em', { withTimezone: true }).defaultNow().notNull(),
+})
+
+// Cartões salvos no Mercado Pago para renovação 1-clique (camada preparada p/ preapproval futuro).
+export const paymentCards = pgTable('payment_cards', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  mpCustomerId: varchar('mp_customer_id', { length: 255 }).notNull(),
+  mpCardId: varchar('mp_card_id', { length: 255 }).notNull(),
+  lastFour: varchar('last_four', { length: 4 }).notNull(),
+  brand: varchar('brand', { length: 30 }).notNull(),
+  criadoEm: timestamp('criado_em', { withTimezone: true }).defaultNow().notNull(),
 })
 
 export const authTokens = pgTable('auth_tokens', {
