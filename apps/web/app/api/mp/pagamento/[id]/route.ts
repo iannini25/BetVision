@@ -14,5 +14,14 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ error: 'Pagamento não encontrado' }, { status: 404 })
   }
 
-  return NextResponse.json({ paymentId: payment.id, status: payment.status, method: payment.method })
+  return NextResponse.json({
+    paymentId: payment.id,
+    status: payment.status,
+    method: payment.method,
+    pix:
+      payment.method === 'pix'
+        ? { qrCodeBase64: payment.pixQrCode, copiaECola: payment.pixCopiaECola }
+        : undefined,
+    boletoUrl: payment.boletoUrl,
+  })
 }
