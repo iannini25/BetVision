@@ -41,6 +41,15 @@ export const SUBSCRIPTION_PRICE_BRL = 14.90
 export const SUBSCRIPTION_DAYS = 45
 export const EXPIRATION_WARNING_DAYS = 5
 
+/**
+ * Real Sportmonks data is used only when the mode is selected AND a token is present.
+ * Single source of truth for the gate — the agent providers, workers, and the seed all
+ * consult this so they can never disagree (a mismatch would mix mock with real data).
+ */
+export function isSportmonksMode(): boolean {
+  return (process.env.DATA_PROVIDER || 'mock') === 'sportmonks' && !!process.env.SPORTMONKS_TOKEN
+}
+
 export const TIMEZONE_BR = 'America/Sao_Paulo'
 
 export const TICKER_EVENT_COLORS: Record<string, string> = {

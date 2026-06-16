@@ -2,6 +2,7 @@ import pg from 'pg'
 import { drizzle } from 'drizzle-orm/node-postgres'
 import { sql } from 'drizzle-orm'
 import * as schema from '../packages/shared/src/db/schema'
+import { isSportmonksMode } from '../packages/shared/src/constants'
 import * as argon2 from 'argon2'
 
 const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://betv:betv_secret@localhost:5432/betv'
@@ -61,6 +62,19 @@ async function seed() {
       expiraEm: expiry,
     })
     console.log(`User created: ${user.email} (subscription active 45 days)`)
+  }
+
+  // In sportmonks mode the provider populates teams/fixtures/odds, so the mock sport
+  // data below must NOT be seeded (it would mix fake matches with real ones). Keep only
+  // the user/triggers/extension above and init system_health for the prod worker set.
+  if (isSportmonksMode()) {
+    const prodWorkers = ['fixtures-sync', 'prematch', 'live-sync', 'odds-sync', 'news-watcher', 'rag-indexer', 'model-tracker', 'archiver']
+    for (const w of prodWorkers) {
+      await db.insert(schema.systemHealth).values({ worker: w, status: 'ok' }).onConflictDoNothing()
+    }
+    console.log('Sportmonks mode — mock sport data skipped; provider will populate teams/fixtures/odds.')
+    await pool.end()
+    return
   }
 
   // Idempotency guard: extension/triggers/user above are safe to re-apply, but the

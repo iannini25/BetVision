@@ -1,7 +1,9 @@
 import { and, eq, ne } from 'drizzle-orm'
 import { round2, BOOKMAKERS_QUOTING } from '@betv/shared'
 import { db, schema, pool } from '../lib/db'
+import { logger } from '../lib/logger'
 import { findValue } from '../engine'
+import { createDataProvider, isSportmonksMode, type DataProvider } from '../providers'
 
 const MIN_EDGE = 0.03
 // Probability clamp (avoid div-by-~0) and per-bookmaker spread around fair odds:
@@ -19,6 +21,8 @@ type LatestProb = { market: string; outcome: string; probability: number }
  */
 export async function runOddsSync(): Promise<Record<string, unknown>> {
   const active = await db.select().from(schema.matches).where(ne(schema.matches.status, 'finished'))
+  if (isSportmonksMode()) return syncRealOdds(active, createDataProvider())
+
   let snapshots = 0
   let flags = 0
 
@@ -41,6 +45,50 @@ export async function runOddsSync(): Promise<Record<string, unknown>> {
   }
 
   return { matches: active.length, snapshots, valueFlags: flags }
+}
+
+// Real odds path: snapshot the provider's bookmaker odds and recompute value flags by
+// pairing each snapshot outcome with the model's latest probability for that outcome.
+async function syncRealOdds(
+  active: (typeof schema.matches.$inferSelect)[],
+  provider: DataProvider
+): Promise<Record<string, unknown>> {
+  let snapshots = 0
+  let flags = 0
+  let matchesWithOdds = 0
+
+  for (const match of active) {
+    if (!match.externalId) continue
+    const odds = await provider.fetchOdds(match.externalId)
+    if (odds.length === 0) continue
+    matchesWithOdds++
+
+    await db.insert(schema.oddsSnapshots).values(
+      odds.map((o) => ({ matchId: match.id, market: o.market, outcome: o.outcome, bookmaker: o.bookmaker, odds: o.odds }))
+    )
+    snapshots += odds.length
+
+    const byOutcome = new Map<string, { bookmaker: string; odds: number }[]>()
+    for (const o of odds) {
+      const key = `${o.market}|${o.outcome}`
+      const list = byOutcome.get(key) ?? []
+      list.push({ bookmaker: o.bookmaker, odds: o.odds })
+      byOutcome.set(key, list)
+    }
+
+    for (const prob of await latestProbs(match.id)) {
+      const entries = byOutcome.get(`${prob.market}|${prob.outcome}`)
+      if (entries?.length) flags += await refreshValueFlag(match.id, prob, entries)
+    }
+  }
+
+  // Odds ingested but nothing paired usually means probabilities are missing (no prob
+  // worker ran) or the outcome strings drifted between model and odds — surface it.
+  if (matchesWithOdds > 0 && flags === 0) {
+    logger.warn({ matchesWithOdds, snapshots }, 'odds snapshotted but no value flags paired — check probabilities worker / outcome keys')
+  }
+
+  return { mode: 'sportmonks', matchesWithOdds, snapshots, valueFlags: flags }
 }
 
 function quoteBookmakers(probability: number): { bookmaker: string; odds: number }[] {

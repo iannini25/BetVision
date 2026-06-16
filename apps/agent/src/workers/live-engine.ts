@@ -86,42 +86,15 @@ async function advance(match: MatchRow): Promise<Record<string, unknown>> {
   const events: MatchEvent[] = [...(match.events ?? [])]
   const stats: Stats = { ...initialStats(), ...(match.stats ?? {}) }
 
-  const base = calculateMatchProbabilities({
-    homeElo: home?.elo ?? DEFAULT_ELO,
-    awayElo: away?.elo ?? DEFAULT_ELO,
-    homeForm: home?.form ?? [],
-    awayForm: away?.form ?? [],
-    isNeutralVenue: true,
-  })
+  const base = baseProbabilities(home, away)
 
   applyTickEvent({ minute, score, events, stats, base, home, away })
   driftPossession(stats)
 
-  const live = liveAdjust(base, minute, score)
-  const corners = calculateCornerProbabilities({
-    homeExpectedGoals: base.homeExpectedGoals,
-    awayExpectedGoals: base.awayExpectedGoals,
-    homeCornerAvg: DEFAULT_CORNER_AVG.home,
-    awayCornerAvg: DEFAULT_CORNER_AVG.away,
-  })
-  const cards = calculateCardProbabilities({
-    refereeAvgYellows: referee?.avgYellows ?? DEFAULT_REFEREE.avgYellows,
-    refereeRigidity: referee?.rigidity ?? DEFAULT_REFEREE.rigidity,
-    isKnockout: false,
-    homeYellowAvg: DEFAULT_REFEREE.teamYellowAvg,
-    awayYellowAvg: DEFAULT_REFEREE.teamYellowAvg,
-  })
-  const varp = calculateVarProbabilities({
-    refereePenaltyRate: referee?.penaltyRate ?? DEFAULT_REFEREE.penaltyRate,
-    homeExpectedGoals: base.homeExpectedGoals,
-    awayExpectedGoals: base.awayExpectedGoals,
-    isKnockout: false,
-  })
-
   const status = minute >= FULL_TIME ? 'finished' : 'live'
   const period = minute > 45 ? '2nd_half' : '1st_half'
 
-  await db.insert(schema.probabilities).values(liveProbRows(match.id, home, away, live, corners, cards, varp))
+  await db.insert(schema.probabilities).values(probabilityRows(match.id, home, away, referee, base, minute, score))
   await db
     .update(schema.matches)
     .set({ minute, homeScore: score.home, awayScore: score.away, events, stats, status, period, atualizadoEm: new Date() })
@@ -206,6 +179,54 @@ function liveAdjust(base: MatchProbabilities, minute: number, score: Score) {
   }
 }
 
+type RefereeRow = typeof schema.referees.$inferSelect
+
+// Deterministic pre-match base probabilities for a fixture (no live state).
+export function baseProbabilities(home: TeamRow | undefined, away: TeamRow | undefined): MatchProbabilities {
+  return calculateMatchProbabilities({
+    homeElo: home?.elo ?? DEFAULT_ELO,
+    awayElo: away?.elo ?? DEFAULT_ELO,
+    homeForm: home?.form ?? [],
+    awayForm: away?.form ?? [],
+    isNeutralVenue: true,
+  })
+}
+
+// Full probability row set for a match given its (real or simulated) minute/score.
+// Shared by the mock live-engine and the production probabilities worker, so both
+// emit identical (market, outcome) keys — which the value engine pairs against odds.
+export function probabilityRows(
+  matchId: number,
+  home: TeamRow | undefined,
+  away: TeamRow | undefined,
+  referee: RefereeRow | undefined,
+  base: MatchProbabilities,
+  minute: number,
+  score: Score
+) {
+  const live = liveAdjust(base, minute, score)
+  const corners = calculateCornerProbabilities({
+    homeExpectedGoals: base.homeExpectedGoals,
+    awayExpectedGoals: base.awayExpectedGoals,
+    homeCornerAvg: DEFAULT_CORNER_AVG.home,
+    awayCornerAvg: DEFAULT_CORNER_AVG.away,
+  })
+  const cards = calculateCardProbabilities({
+    refereeAvgYellows: referee?.avgYellows ?? DEFAULT_REFEREE.avgYellows,
+    refereeRigidity: referee?.rigidity ?? DEFAULT_REFEREE.rigidity,
+    isKnockout: false,
+    homeYellowAvg: DEFAULT_REFEREE.teamYellowAvg,
+    awayYellowAvg: DEFAULT_REFEREE.teamYellowAvg,
+  })
+  const varp = calculateVarProbabilities({
+    refereePenaltyRate: referee?.penaltyRate ?? DEFAULT_REFEREE.penaltyRate,
+    homeExpectedGoals: base.homeExpectedGoals,
+    awayExpectedGoals: base.awayExpectedGoals,
+    isKnockout: false,
+  })
+  return liveProbRows(matchId, home, away, live, corners, cards, varp)
+}
+
 function liveProbRows(
   matchId: number,
   home: TeamRow | undefined,
@@ -233,13 +254,13 @@ function probRow(matchId: number, market: string, outcome: string, probability: 
   return { matchId, market, outcome, probability: round2(probability), isLive: true }
 }
 
-async function teamById(id: number | null): Promise<TeamRow | undefined> {
+export async function teamById(id: number | null): Promise<TeamRow | undefined> {
   if (!id) return undefined
   const [t] = await db.select().from(schema.teams).where(eq(schema.teams.id, id)).limit(1)
   return t
 }
 
-async function refereeById(id: number | null) {
+export async function refereeById(id: number | null) {
   if (!id) return undefined
   const [r] = await db.select().from(schema.referees).where(eq(schema.referees.id, id)).limit(1)
   return r

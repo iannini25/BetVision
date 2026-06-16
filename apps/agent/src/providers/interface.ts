@@ -42,6 +42,26 @@ export type ProviderReferee = {
   externalId: string
   name: string
   country: string
+  // Optional aggregate stats (real providers may supply; mock omits — engine derives).
+  avgYellows?: number
+  avgReds?: number
+  avgFouls?: number
+  penaltyRate?: number
+}
+
+export type ProviderPlayer = {
+  externalId: string
+  name: string
+  position?: string
+  stats?: Record<string, number>
+}
+
+export type ProviderTeam = {
+  externalId: string
+  name: string
+  shortName: string
+  group?: string
+  players?: ProviderPlayer[]
 }
 
 export interface DataProvider {
@@ -51,4 +71,8 @@ export interface DataProvider {
   fetchLineups(externalId: string): Promise<ProviderLineup[]>
   fetchOdds(externalId: string): Promise<ProviderOdds[]>
   fetchMatchReferee(externalId: string): Promise<ProviderReferee | null>
+  // Optional richer reads. Real providers (Sportmonks) implement them; the mock omits
+  // them, and the gated ingestion only calls them when present — keeping mock intact.
+  fetchLiveMatches?(): Promise<ProviderMatch[]>
+  fetchTeams?(): Promise<ProviderTeam[]>
 }
