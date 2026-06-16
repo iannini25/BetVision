@@ -38,7 +38,7 @@ export default function AcessoExpiradoPage() {
         <Button
           size="lg"
           leftIcon={<Wallet2 size={18} variant="Bold" color="currentColor" aria-hidden="true" />}
-          onClick={() => router.push('/checkout')}
+          onClick={() => router.push('/renovar')}
         >
           Renovar passe · R$ 14,90
         </Button>

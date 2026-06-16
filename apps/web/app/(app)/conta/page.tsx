@@ -1,10 +1,13 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
+import Link from 'next/link'
 import { animate, utils } from 'animejs'
+import { SUBSCRIPTION_DAYS, RENEWAL_UNLOCK_DAYS } from '@betv/shared'
 import { AppHeader } from '@/components/layout/app-header'
 import { GlassCard } from '@/components/ui/glass-card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Button } from '@/components/ui/button'
 import { useCountUp } from '@/hooks/use-count-up'
 import { useReducedMotion } from '@/hooks/use-reduced-motion'
 import { useSession } from '@/hooks/use-session'
@@ -14,7 +17,8 @@ export default function ContaPage() {
   const { session, loading: sessionLoading, logout } = useSession()
   const user = session?.user
   const daysRemaining = session?.daysRemaining ?? 0
-  const progress = Math.min(1, daysRemaining / 45)
+  const progress = Math.min(1, daysRemaining / SUBSCRIPTION_DAYS)
+  const canRenew = daysRemaining <= RENEWAL_UNLOCK_DAYS
 
   const daysRef = useCountUp<HTMLSpanElement>(daysRemaining)
   const reduced = useReducedMotion()
@@ -46,6 +50,15 @@ export default function ContaPage() {
       return res.json()
     },
     select: (d: any) => d.payments ?? [],
+  })
+
+  const { data: stats } = useQuery({
+    queryKey: ['account-stats'],
+    queryFn: async () => {
+      const res = await fetch('/api/account/stats')
+      if (!res.ok) return null
+      return res.json() as Promise<{ consultasChat: number; oddsAvaliadas: number; diasAtivos: number }>
+    },
   })
 
   if (sessionLoading) {
@@ -84,7 +97,7 @@ export default function ContaPage() {
               className="h-2 rounded-full bg-bg-subtle overflow-hidden"
               role="progressbar"
               aria-valuemin={0}
-              aria-valuemax={45}
+              aria-valuemax={SUBSCRIPTION_DAYS}
               aria-valuenow={daysRemaining}
             >
               <div
@@ -92,6 +105,31 @@ export default function ContaPage() {
                 className="h-full w-full origin-left rounded-full bg-brand-gradient will-change-transform"
                 style={{ transform: 'scaleX(0)' }}
               />
+            </div>
+            <div className="flex flex-col gap-1 pt-1">
+              {canRenew ? (
+                <Link href="/renovar" className="self-start">
+                  <Button size="sm">Renovar passe</Button>
+                </Link>
+              ) : (
+                <>
+                  <Button size="sm" disabled className="self-start">Renovar passe</Button>
+                  <p role="note" className="text-xs text-text-muted">
+                    A renovação abre quando faltarem {RENEWAL_UNLOCK_DAYS} dias para expirar.
+                  </p>
+                </>
+              )}
+            </div>
+          </div>
+        </GlassCard>
+
+        <GlassCard>
+          <div className="flex flex-col gap-4">
+            <h3 className="text-xs font-bold tracking-widest text-text-muted uppercase">Seu uso</h3>
+            <div className="grid grid-cols-3 gap-3">
+              <UsageStat label="Consultas no chat" value={stats?.consultasChat} />
+              <UsageStat label="Odds avaliadas" value={stats?.oddsAvaliadas} />
+              <UsageStat label="Dias ativos" value={stats?.diasAtivos} />
             </div>
           </div>
         </GlassCard>
@@ -151,5 +189,14 @@ export default function ContaPage() {
         </GlassCard>
       </div>
     </>
+  )
+}
+
+function UsageStat({ label, value }: { label: string; value?: number }) {
+  return (
+    <div className="flex flex-col gap-1 rounded-card border border-border-subtle bg-bg-card/40 p-3">
+      <span className="font-display text-2xl font-extrabold tabular-nums text-text-primary">{value ?? '—'}</span>
+      <span className="text-[11px] leading-tight text-text-muted">{label}</span>
+    </div>
   )
 }

@@ -3,6 +3,7 @@
 import dynamic from 'next/dynamic'
 import { useState } from 'react'
 import Link from 'next/link'
+import { useQuery } from '@tanstack/react-query'
 import type { PaymentMethod } from '@betv/shared'
 import { useCheckout, type BrickFormData } from '@/lib/mp/use-checkout'
 import { MockCheckout } from './mock-checkout'
@@ -55,12 +56,57 @@ export function CheckoutClient({ renew = false }: { renew?: boolean }) {
     )
   }
 
-  if (mock) return <MockCheckout onPay={pay} submitting={submitting} error={error} />
+  if (mock)
+    return (
+      <div className="flex flex-col gap-4">
+        {renew && <SavedCardOneClick onPay={pay} submitting={submitting} />}
+        <MockCheckout onPay={pay} submitting={submitting} error={error} />
+      </div>
+    )
 
   return (
     <div className="flex flex-col gap-4">
       {error && <p role="alert" className="text-sm text-accent-red">{error}</p>}
       <BrickCheckout publicKey={publicKey || ''} onPay={pay} onError={setError} />
+    </div>
+  )
+}
+
+type SavedCard = { id: string; lastFour: string; brand: string }
+
+// Renovação 1-clique com cartão salvo (demonstrável no mock; no real o Brick usa o cartão do customer
+// pedindo o CVV no campo seguro do MP).
+function SavedCardOneClick({
+  onPay,
+  submitting,
+}: {
+  onPay: (method: PaymentMethod, form: BrickFormData) => void
+  submitting: boolean
+}) {
+  const { data } = useQuery({
+    queryKey: ['saved-cards'],
+    queryFn: async () => {
+      const r = await fetch('/api/conta/cartoes')
+      if (!r.ok) return { cards: [] as SavedCard[] }
+      return (await r.json()) as { cards: SavedCard[] }
+    },
+  })
+  const cards = data?.cards ?? []
+  if (!cards.length) return null
+
+  return (
+    <div className="flex flex-col gap-2">
+      {cards.map((c) => (
+        <Button
+          key={c.id}
+          variant="secondary"
+          loading={submitting}
+          onClick={() => onPay('credit', { token: `mock-${c.id}` })}
+        >
+          Renovar com {c.brand} •••• {c.lastFour} (1 clique)
+        </Button>
+      ))}
+      <p className="text-center text-xs text-text-muted">ou escolha outra forma abaixo</p>
     </div>
   )
 }
