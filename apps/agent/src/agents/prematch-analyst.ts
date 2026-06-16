@@ -61,7 +61,7 @@ REGRAS:
 Retorne em JSON: { "analysis": "texto", "keyFactors": ["fator1", "fator2", "fator3"] }`
 
     const response = await client.messages.create({
-      model: process.env.AI_MODEL_ANALYSIS || 'claude-sonnet-4-20250514',
+      model: process.env.AI_MODEL_ANALYSIS || 'claude-opus-4-8',
       max_tokens: 800,
       messages: [{ role: 'user', content: prompt }],
     })

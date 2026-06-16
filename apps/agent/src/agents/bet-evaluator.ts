@@ -66,7 +66,7 @@ REGRAS:
 Responda em PT-BR, máximo 3 parágrafos.`
 
     const response = await client.messages.create({
-      model: process.env.AI_MODEL_CHAT || 'claude-sonnet-4-20250514',
+      model: process.env.AI_MODEL_CHAT || 'claude-sonnet-4-6',
       max_tokens: 500,
       messages: [{ role: 'user', content: prompt }],
     })
