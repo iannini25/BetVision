@@ -1,29 +1,47 @@
 import { NextResponse } from 'next/server'
 import { processWebhook } from '@/services/payment.service'
+import { getMercadoPagoClient, isMockMP } from '@betv/shared/mercadopago/client'
+import { verifyMpSignature, parseMpSignatureHeader } from '@betv/shared/mp-signature'
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json()
-
-    const webhookSecret = process.env.MP_WEBHOOK_SECRET
-    if (webhookSecret) {
-      const signature = request.headers.get('x-signature')
-      if (!signature) {
-        return NextResponse.json({ error: 'Missing signature' }, { status: 401 })
-      }
-      // In production: validate HMAC signature here
+    const body = (await request.json().catch(() => ({}))) as {
+      data?: { id?: string | number }
+      paymentId?: string
+      status?: string
     }
 
-    if (body.type === 'payment' && body.data?.id) {
-      const status = body.action === 'payment.updated' ? 'approved' : body.data.status
-      await processWebhook(String(body.data.id), status || 'approved')
+    // Mock (sem chave): aceita {paymentId, status} — ex.: botão "simular aprovação" do checkout.
+    if (isMockMP()) {
+      if (body.paymentId) await processWebhook(String(body.paymentId), String(body.status || 'approved'))
+      return NextResponse.json({ ok: true })
     }
 
-    // Mock mode: accept any payload shape
-    if (!process.env.MP_ACCESS_TOKEN && body.paymentId) {
-      await processWebhook(body.paymentId, body.status || 'approved')
+    // Real: nunca confiar no corpo. Validar assinatura, buscar o status autoritativo no MP e
+    // resolver a linha local por external_reference (à prova da corrida webhook-antes-do-create).
+    const dataId = body.data?.id
+    if (!dataId) return NextResponse.json({ ok: true }) // outros tópicos: ignora silenciosamente
+
+    const secret = process.env.MP_WEBHOOK_SECRET
+    if (secret) {
+      const parts = parseMpSignatureHeader(request.headers.get('x-signature'))
+      const requestId = request.headers.get('x-request-id') || ''
+      const ok =
+        parts &&
+        verifyMpSignature(secret, { dataId: String(dataId).toLowerCase(), requestId, ts: parts.ts, v1: parts.v1 })
+      if (!ok) return NextResponse.json({ error: 'Assinatura inválida' }, { status: 401 })
     }
 
+    const mpPayment = await getMercadoPagoClient().getPayment(String(dataId))
+    if (!mpPayment.externalReference) {
+      // Sem external_reference não há como casar com a linha local: peça retry ao MP.
+      return NextResponse.json({ error: 'external_reference ausente' }, { status: 422 })
+    }
+
+    await processWebhook(mpPayment.externalReference, mpPayment.status, {
+      statusDetail: mpPayment.statusDetail,
+      paidAt: mpPayment.approvedAt ? new Date(mpPayment.approvedAt) : undefined,
+    })
     return NextResponse.json({ ok: true })
   } catch (error) {
     console.error('Webhook error:', error)

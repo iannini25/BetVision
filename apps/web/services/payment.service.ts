@@ -1,91 +1,211 @@
 import { db, schema } from '@/lib/db'
 import { eq, and } from 'drizzle-orm'
-import { SUBSCRIPTION_DAYS, SUBSCRIPTION_PRICE_BRL } from '@betv/shared'
-import { sendWelcomeEmail } from '@betv/emails'
+import {
+  SUBSCRIPTION_DAYS,
+  SUBSCRIPTION_PRICE_BRL,
+  calcFee,
+  calcTotal,
+  computeNewExpiry,
+  type PaymentMethod,
+} from '@betv/shared'
+import { getMercadoPagoClient, isMockMP, type MpPaymentRequest } from '@betv/shared/mercadopago/client'
+import { sendPaymentReceivedEmail, sendRenewalConfirmationEmail } from '@betv/emails'
+import { createAuthToken } from './auth.service'
 
-const isMockMP = !process.env.MP_ACCESS_TOKEN
+const { payments, subscriptions, users, paymentCards } = schema
 
-export async function createPixPayment(userId: string) {
-  if (isMockMP) {
-    const [payment] = await db
-      .insert(schema.payments)
-      .values({
-        userId,
-        amount: SUBSCRIPTION_PRICE_BRL,
-        status: 'pending',
-        method: 'pix',
-        mpPaymentId: `mock-${Date.now()}`,
-        pixQrCode: 'data:image/png;base64,MOCK_QR_CODE',
-        pixCopiaECola: '00020126580014br.gov.bcb.pix0136mock-pix-betv-online',
-      })
-      .returning()
+const SET_PASSWORD_TOKEN_TYPE = 'set_password'
+const SET_PASSWORD_TTL_MS = 24 * 60 * 60 * 1000
 
-    console.log(`[MP MOCK] Payment created: ${payment.id}`)
-    return payment
-  }
-
-  // Real Mercado Pago integration would go here
-  throw new Error('Real MP not implemented yet')
+/** Forma do que o Payment Brick devolve no onSubmit (o mock-checkout produz a mesma forma). */
+export type BrickFormData = {
+  token?: string
+  payment_method_id?: string
+  issuer_id?: string
+  installments?: number
+  payer?: { email?: string; identification?: { type?: string; number?: string } }
 }
 
-export async function processWebhook(paymentId: string, status: string) {
-  const [existing] = await db
-    .select()
-    .from(schema.payments)
-    .where(eq(schema.payments.mpPaymentId, paymentId))
-    .limit(1)
+export type CreatePaymentResult = {
+  paymentId: string
+  status: string
+  pix?: { qrCodeBase64: string | null; copiaECola: string | null }
+  boletoUrl?: string | null
+}
 
-  if (!existing) return null
+/**
+ * Cria um pagamento: grava a linha local PENDING primeiro (o UUID vira external_reference
+ * E X-Idempotency-Key — dedupe ponta a ponta e resolução à prova da corrida webhook-antes-do-create),
+ * chama o Mercado Pago e persiste o retorno. Acesso só é liberado depois, no webhook (approved).
+ */
+export async function createPayment(
+  userId: string,
+  method: PaymentMethod,
+  form: BrickFormData = {}
+): Promise<CreatePaymentResult> {
+  const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1)
+  if (!user) throw new Error('Usuário não encontrado')
 
-  if (existing.status === 'approved') return existing
+  const fee = calcFee(SUBSCRIPTION_PRICE_BRL, method)
+  const total = calcTotal(SUBSCRIPTION_PRICE_BRL, method)
 
-  await db
-    .update(schema.payments)
-    .set({ status, atualizadoEm: new Date() })
-    .where(eq(schema.payments.id, existing.id))
+  const [row] = await db
+    .insert(payments)
+    .values({ userId, amount: total, feeAmount: fee, method, status: 'pending' })
+    .returning()
 
-  if (status === 'approved') {
-    const now = new Date()
-    const [activeSub] = await db
-      .select()
-      .from(schema.subscriptions)
-      .where(
-        and(
-          eq(schema.subscriptions.userId, existing.userId),
-          eq(schema.subscriptions.status, 'active')
-        )
-      )
-      .limit(1)
+  const cpf = form.payer?.identification?.number ?? user.cpf ?? undefined
+  const [firstName, ...rest] = (user.name || '').split(' ')
 
-    const startFrom = activeSub && new Date(activeSub.expiraEm) > now
-      ? new Date(activeSub.expiraEm)
-      : now
-    const expiry = new Date(startFrom.getTime() + SUBSCRIPTION_DAYS * 24 * 60 * 60 * 1000)
-
-    if (activeSub) {
-      await db
-        .update(schema.subscriptions)
-        .set({ expiraEm: expiry })
-        .where(eq(schema.subscriptions.id, activeSub.id))
-    } else {
-      await db.insert(schema.subscriptions).values({
-        userId: existing.userId,
-        status: 'active',
-        inicioEm: now,
-        expiraEm: expiry,
-      })
-    }
-
-    const [user] = await db
-      .select()
-      .from(schema.users)
-      .where(eq(schema.users.id, existing.userId))
-      .limit(1)
-
-    if (user) {
-      await sendWelcomeEmail(user.email, user.name)
-    }
+  const req: MpPaymentRequest = {
+    externalReference: row.id,
+    amount: total,
+    method,
+    description: 'BetV — Passe da Copa (45 dias)',
+    payer: {
+      email: form.payer?.email || user.email,
+      firstName: firstName || undefined,
+      lastName: rest.join(' ') || undefined,
+      identification: cpf ? { type: form.payer?.identification?.type || 'CPF', number: cpf } : undefined,
+    },
+    token: form.token,
+    installments: form.installments,
+    paymentMethodId: form.payment_method_id,
+    issuerId: form.issuer_id,
+    customerId: user.mpCustomerId || undefined,
   }
 
-  return existing
+  const res = await getMercadoPagoClient().createPayment(req)
+
+  await db
+    .update(payments)
+    .set({
+      mpPaymentId: res.id,
+      status: res.status,
+      mpStatusDetail: res.statusDetail,
+      pixQrCode: res.pixQrCodeBase64 ?? null,
+      pixCopiaECola: res.pixQrCode ?? null,
+      boletoUrl: res.boletoUrl ?? null,
+      installments: form.installments ?? null,
+      atualizadoEm: new Date(),
+    })
+    .where(eq(payments.id, row.id))
+
+  // Captura o CPF quando o cliente o informa (cartão/boleto) e ainda não temos.
+  if (form.payer?.identification?.number && !user.cpf) {
+    await db.update(users).set({ cpf: form.payer.identification.number, atualizadoEm: new Date() }).where(eq(users.id, userId))
+  }
+
+  return {
+    paymentId: row.id,
+    status: res.status,
+    pix: method === 'pix' ? { qrCodeBase64: res.pixQrCodeBase64 ?? null, copiaECola: res.pixQrCode ?? null } : undefined,
+    boletoUrl: res.boletoUrl ?? null,
+  }
+}
+
+/**
+ * Aplica uma atualização de status do MP de forma idempotente e atômica: a linha é travada
+ * (FOR UPDATE), o guard "já approved?" e a extensão da assinatura ocorrem na mesma transação.
+ * IO (e-mail, cartão mock) só roda após o commit, e só na PRIMEIRA aprovação.
+ */
+export async function processWebhook(
+  localPaymentId: string,
+  status: string,
+  opts: { statusDetail?: string; paidAt?: Date } = {}
+): Promise<{ found: boolean; freshlyApproved: boolean }> {
+  const outcome = await db.transaction(async (tx) => {
+    const [payment] = await tx.select().from(payments).where(eq(payments.id, localPaymentId)).for('update').limit(1)
+    if (!payment) return { found: false, freshlyApproved: false, userId: '', method: '' }
+    if (payment.status === 'approved') return { found: true, freshlyApproved: false, userId: payment.userId, method: payment.method }
+
+    await tx
+      .update(payments)
+      .set({
+        status,
+        mpStatusDetail: opts.statusDetail ?? payment.mpStatusDetail,
+        paidAt: status === 'approved' ? opts.paidAt ?? new Date() : payment.paidAt,
+        atualizadoEm: new Date(),
+      })
+      .where(eq(payments.id, payment.id))
+
+    if (status !== 'approved') return { found: true, freshlyApproved: false, userId: payment.userId, method: payment.method }
+
+    const now = new Date()
+    const [activeSub] = await tx
+      .select()
+      .from(subscriptions)
+      .where(and(eq(subscriptions.userId, payment.userId), eq(subscriptions.status, 'active')))
+      .for('update')
+      .limit(1)
+
+    const expiry = computeNewExpiry(activeSub ? new Date(activeSub.expiraEm) : null, now, SUBSCRIPTION_DAYS)
+    if (activeSub) {
+      await tx.update(subscriptions).set({ expiraEm: expiry }).where(eq(subscriptions.id, activeSub.id))
+    } else {
+      await tx.insert(subscriptions).values({ userId: payment.userId, status: 'active', inicioEm: now, expiraEm: expiry })
+    }
+
+    return { found: true, freshlyApproved: true, userId: payment.userId, method: payment.method }
+  })
+
+  if (outcome.freshlyApproved) await onApproved(outcome.userId, outcome.method)
+  return { found: outcome.found, freshlyApproved: outcome.freshlyApproved }
+}
+
+/** Pós-aprovação (fora da transação): e-mail certo e, no mock, cartão salvo para a renovação 1-clique. */
+async function onApproved(userId: string, method: string): Promise<void> {
+  const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1)
+  if (!user) return
+
+  if (!user.passwordHash) {
+    // Primeira compra (cadastro-first, senha ainda não criada): leva o usuário a criar a senha.
+    const token = await createAuthToken(userId, SET_PASSWORD_TOKEN_TYPE, SET_PASSWORD_TTL_MS)
+    await sendPaymentReceivedEmail(user.email, user.name, `${process.env.APP_URL}/criar-senha/${token}`)
+  } else {
+    const sub = await getActiveSubscriptionRow(userId)
+    if (sub) await sendRenewalConfirmationEmail(user.email, user.name, new Date(sub.expiraEm))
+  }
+
+  if (isMockMP() && (method === 'credit' || method === 'debit') && user.mpCustomerId) {
+    const [existing] = await db.select().from(paymentCards).where(eq(paymentCards.userId, userId)).limit(1)
+    if (!existing) {
+      await db.insert(paymentCards).values({
+        userId,
+        mpCustomerId: user.mpCustomerId,
+        mpCardId: `mock-card-${userId}`,
+        lastFour: '4242',
+        brand: 'visa',
+      })
+    }
+  }
+}
+
+/** Garante (idempotente) um Customer do MP para o usuário e guarda o id. */
+export async function createCustomerForUser(userId: string): Promise<string> {
+  const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1)
+  if (!user) throw new Error('Usuário não encontrado')
+  if (user.mpCustomerId) return user.mpCustomerId
+
+  const [firstName, ...rest] = (user.name || '').split(' ')
+  const { id } = await getMercadoPagoClient().createCustomer({
+    email: user.email,
+    firstName: firstName || undefined,
+    lastName: rest.join(' ') || undefined,
+  })
+  await db.update(users).set({ mpCustomerId: id, atualizadoEm: new Date() }).where(eq(users.id, userId))
+  return id
+}
+
+export async function listSavedCards(userId: string) {
+  return db.select().from(paymentCards).where(eq(paymentCards.userId, userId))
+}
+
+async function getActiveSubscriptionRow(userId: string) {
+  const [sub] = await db
+    .select()
+    .from(subscriptions)
+    .where(and(eq(subscriptions.userId, userId), eq(subscriptions.status, 'active')))
+    .limit(1)
+  return sub ?? null
 }

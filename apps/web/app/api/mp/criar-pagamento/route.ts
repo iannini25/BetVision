@@ -1,19 +1,21 @@
 import { NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
-import { createPixPayment } from '@/services/payment.service'
+import { createPayment, type BrickFormData } from '@/services/payment.service'
+import type { PaymentMethod } from '@betv/shared'
 
-export async function POST() {
+const METHODS: PaymentMethod[] = ['pix', 'credit', 'debit', 'boleto', 'wallet']
+
+export async function POST(request: Request) {
   const session = await getSession()
-  if (!session) return NextResponse.json({ error: 'Nao autorizado' }, { status: 401 })
+  if (!session) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
 
   try {
-    const payment = await createPixPayment(session.userId)
-    return NextResponse.json({
-      paymentId: payment.id,
-      qrCode: payment.pixQrCode,
-      copiaECola: payment.pixCopiaECola,
-      amount: payment.amount,
-    })
+    const body = (await request.json().catch(() => ({}))) as { method?: string; brickFormData?: BrickFormData }
+    const method = body.method as PaymentMethod
+    if (!METHODS.includes(method)) return NextResponse.json({ error: 'Método inválido' }, { status: 400 })
+
+    const result = await createPayment(session.userId, method, body.brickFormData ?? {})
+    return NextResponse.json(result)
   } catch (error) {
     console.error('Create payment error:', error)
     return NextResponse.json({ error: 'Erro ao criar pagamento' }, { status: 500 })
