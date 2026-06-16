@@ -1,3 +1,4 @@
+import { round2, BOOKMAKERS_QUOTING } from '@betv/shared'
 import type { DataProvider, ProviderMatch, ProviderLineup, ProviderOdds, ProviderReferee } from './interface'
 
 const MOCK_MATCHES: ProviderMatch[] = [
@@ -107,8 +108,6 @@ const MOCK_LINEUPS: Record<string, ProviderLineup[]> = {
   ],
 }
 
-const BOOKMAKERS = ['Bet365', 'Betano', 'Sportingbet', 'Pixbet', '1xBet']
-
 function todayAt(brtHour: number): Date {
   const now = new Date()
   now.setUTCHours(brtHour + 3, 0, 0, 0)
@@ -146,13 +145,13 @@ export class MockProvider implements DataProvider {
 
     const result: ProviderOdds[] = []
     for (const o of outcomes) {
-      for (const bk of BOOKMAKERS) {
+      for (const bk of BOOKMAKERS_QUOTING) {
         const variance = 0.95 + Math.random() * 0.1
         result.push({
           bookmaker: bk,
           market: o.market,
           outcome: o.outcome,
-          odds: Math.round(o.baseOdds * variance * 100) / 100,
+          odds: round2(o.baseOdds * variance),
         })
       }
     }

@@ -1,14 +1,17 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { animate, stagger, utils } from 'animejs'
 import { LiveDot } from '@/components/ui/live-dot'
 import { Disclaimer18 } from '@/components/ui/disclaimer'
+import { Skeleton } from '@/components/ui/skeleton'
 import { useCountUp } from '@/hooks/use-count-up'
 import { useInView } from '@/hooks/use-in-view'
+import { useValueRadar } from '@/hooks/use-matches'
 import { staggerReveal, prefersReducedMotion } from '@/lib/motion'
 
 type ValueItem = {
+  id: number
   market: string
   outcome: string
   matchLabel: string
@@ -18,12 +21,21 @@ type ValueItem = {
   isLive?: boolean
 }
 
-const MOCK_VALUES: ValueItem[] = [
-  { market: 'over_under_2_5', outcome: 'Over 2.5 gols', matchLabel: 'ARG × MAR', modelProb: 0.68, bestOdds: 1.62, edge: 0.062 },
-  { market: 'corners_over_9_5', outcome: 'Escanteios 10+', matchLabel: 'BRA × ALE', modelProb: 0.57, bestOdds: 1.95, edge: 0.058, isLive: true },
-  { market: 'btts', outcome: 'Ambas marcam', matchLabel: 'FRA × NOR', modelProb: 0.54, bestOdds: 2.05, edge: 0.051 },
-  { market: 'cards_over_4_5', outcome: 'Cartões 5+', matchLabel: 'POR × COL', modelProb: 0.48, bestOdds: 2.30, edge: 0.046 },
-]
+function toValueItem(flag: any): ValueItem {
+  return {
+    id: flag.id,
+    market: flag.market,
+    outcome: flag.outcome,
+    matchLabel:
+      flag.homeTeam?.shortName && flag.awayTeam?.shortName
+        ? `${flag.homeTeam.shortName} × ${flag.awayTeam.shortName}`
+        : '—',
+    modelProb: flag.modelProb,
+    bestOdds: flag.bestOdds,
+    edge: flag.edge,
+    isLive: flag.status === 'live',
+  }
+}
 
 /**
  * One opportunity row. The green +edge% pill is the product payoff, so it gets
@@ -96,11 +108,12 @@ function ValueRow({ item }: { item: ValueItem }) {
   )
 }
 
-type ValueRadarProps = {
-  items?: ValueItem[]
-}
-
-export function ValueRadar({ items = MOCK_VALUES }: ValueRadarProps) {
+export function ValueRadar() {
+  const { data, isLoading } = useValueRadar()
+  // Memoize on the query data: React Query keeps `data` referentially stable across
+  // refetches when nothing changed (structural sharing), so the mount stagger does
+  // not re-run on every realtime invalidation — only when the opportunities change.
+  const items = useMemo<ValueItem[]>(() => (data ?? []).map(toValueItem), [data])
   const sectionRef = useRef<HTMLElement>(null)
 
   // On mount: stagger the rows up, then sweep each probability bar from empty to
@@ -155,8 +168,20 @@ export function ValueRadar({ items = MOCK_VALUES }: ValueRadarProps) {
         <span className="ml-auto text-[11px] text-text-muted">hoje</span>
       </div>
 
-      {items.map((item, i) => (
-        <ValueRow key={i} item={item} />
+      {isLoading && (
+        <div className="flex flex-col gap-3">
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-5/6" />
+        </div>
+      )}
+
+      {!isLoading && items.length === 0 && (
+        <p className="text-[13px] text-text-muted py-2">Sem oportunidades de valor no momento.</p>
+      )}
+
+      {items.map((item) => (
+        <ValueRow key={item.id} item={item} />
       ))}
 
       <Disclaimer18 />

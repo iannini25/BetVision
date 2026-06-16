@@ -52,6 +52,32 @@ export function useMatchNews(id: number) {
   })
 }
 
+export function useMatchLineups(id: number) {
+  return useQuery({
+    queryKey: ['match-lineups', id],
+    queryFn: () => fetchJson<{ lineups: any[] }>(`/api/matches/${id}/lineups`),
+    select: (data) => data.lineups,
+    enabled: !!id,
+  })
+}
+
+export function useMatchAnalysis(id: number) {
+  return useQuery({
+    queryKey: ['match-analysis', id],
+    queryFn: () => fetchJson<{ analyses: any[] }>(`/api/matches/${id}/analysis`),
+    select: (data) => data.analyses,
+    enabled: !!id,
+  })
+}
+
+export function useAgentFeed() {
+  return useQuery({
+    queryKey: ['agent-feed'],
+    queryFn: () => fetchJson<{ news: any[] }>('/api/news'),
+    select: (data) => data.news,
+  })
+}
+
 export function useValueRadar() {
   return useQuery({
     queryKey: ['value-radar'],

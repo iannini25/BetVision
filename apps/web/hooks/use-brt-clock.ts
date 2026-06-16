@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { TIMEZONE_BR } from '@betv/shared'
 
 export function useBrtClock() {
   const [time, setTime] = useState('')
@@ -10,7 +11,7 @@ export function useBrtClock() {
     function update() {
       const now = new Date()
       const brt = new Intl.DateTimeFormat('pt-BR', {
-        timeZone: 'America/Sao_Paulo',
+        timeZone: TIMEZONE_BR,
         hour: '2-digit',
         minute: '2-digit',
         second: '2-digit',
@@ -18,7 +19,7 @@ export function useBrtClock() {
       }).format(now)
 
       const dateFmt = new Intl.DateTimeFormat('pt-BR', {
-        timeZone: 'America/Sao_Paulo',
+        timeZone: TIMEZONE_BR,
         weekday: 'long',
         day: 'numeric',
         month: 'long',

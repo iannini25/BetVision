@@ -1,9 +1,10 @@
+import { eq, and, gte, lte, desc, sql } from 'drizzle-orm'
+import { round3 } from '@betv/shared'
 import { db, schema } from '@/lib/db'
 const {
   matches, teams, referees, probabilities, oddsSnapshots,
-  valueFlags, newsItems, lineups, predictionsLog,
+  valueFlags, newsItems, lineups, predictionsLog, aiAnalyses,
 } = schema
-import { eq, and, gte, lte, desc, sql } from 'drizzle-orm'
 
 export async function getTodayMatches() {
   const today = new Date()
@@ -100,6 +101,27 @@ export async function getMatchNews(matchId: number) {
     .orderBy(desc(newsItems.relevance))
 }
 
+export async function getMatchAnalysis(matchId: number) {
+  return db
+    .select()
+    .from(aiAnalyses)
+    .where(eq(aiAnalyses.matchId, matchId))
+    .orderBy(desc(aiAnalyses.criadoEm))
+}
+
+// Global agent feed: latest classified news across all matches (relevance >= floor),
+// independent of any single match. Powers the dashboard's "Últimas do agente".
+export async function getAgentFeed(minRelevance = 3, limit = 12) {
+  // Coalesce to criadoEm (NOT NULL) so undated items fall back to their insert time
+  // instead of Postgres' default DESC NULLS FIRST floating them to the top.
+  return db
+    .select()
+    .from(newsItems)
+    .where(gte(newsItems.relevance, minRelevance))
+    .orderBy(desc(sql`coalesce(${newsItems.publishedAt}, ${newsItems.criadoEm})`))
+    .limit(limit)
+}
+
 export async function getValueRadar() {
   const flags = await db
     .select()
@@ -130,14 +152,22 @@ export async function getValueRadar() {
   const teamMap = new Map(allTeams.map((t) => [t.id, t]))
   const matchMap = new Map(flagMatches.map((m) => [m.id, m]))
 
-  return flags.map((f) => {
-    const match = matchMap.get(f.matchId)
-    return {
-      ...f,
-      homeTeam: match?.homeTeamId ? teamMap.get(match.homeTeamId) : null,
-      awayTeam: match?.awayTeamId ? teamMap.get(match.awayTeamId) : null,
-    }
-  })
+  // Finished/archived matches keep active value flags (odds-sync skips finished games
+  // and never deactivates them), so drop them here — the Radar only shows live/upcoming.
+  return flags
+    .filter((f) => {
+      const match = matchMap.get(f.matchId)
+      return match && match.status !== 'finished' && !match.archived
+    })
+    .map((f) => {
+      const match = matchMap.get(f.matchId)
+      return {
+        ...f,
+        status: match?.status ?? null,
+        homeTeam: match?.homeTeamId ? teamMap.get(match.homeTeamId) : null,
+        awayTeam: match?.awayTeamId ? teamMap.get(match.awayTeamId) : null,
+      }
+    })
 }
 
 export async function getModelPerformance() {
@@ -161,7 +191,7 @@ export async function getModelPerformance() {
   return {
     totalPredictions: total,
     accuracy: total > 0 ? correct / total : 0,
-    brierScore: Math.round(avgBrier * 1000) / 1000,
+    brierScore: round3(avgBrier),
     byMarket: Object.entries(byMarket).map(([market, data]) => ({
       market,
       accuracy: data.total > 0 ? data.correct / data.total : 0,

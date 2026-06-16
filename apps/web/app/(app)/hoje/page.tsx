@@ -8,19 +8,7 @@ import { AgentFeed } from '@/components/domain/agent-feed'
 import { useMatches } from '@/hooks/use-matches'
 import { useSession } from '@/hooks/use-session'
 import { MatchCardSkeleton } from '@/components/ui/skeleton'
-
-function formatBrtTime(dateStr: string): string {
-  try {
-    return new Intl.DateTimeFormat('pt-BR', {
-      timeZone: 'America/Sao_Paulo',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    }).format(new Date(dateStr))
-  } catch {
-    return '--:--'
-  }
-}
+import { formatBrtTime } from '@/lib/match'
 
 export default function HojePage() {
   const { data: matches, isLoading, error } = useMatches()

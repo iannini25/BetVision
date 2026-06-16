@@ -21,16 +21,24 @@ export function useRealtimeSync() {
         case 'matches_update':
           queryClient.invalidateQueries({ queryKey: ['matches'] })
           if (msg.id != null) queryClient.invalidateQueries({ queryKey: ['match', Number(msg.id)] })
+          // A status change (e.g. live -> finished) must refresh the Radar so a finished
+          // match's flag stops showing as live; getValueRadar also filters finished games.
+          queryClient.invalidateQueries({ queryKey: ['value-radar'] })
           break
         case 'probabilities_update':
-          queryClient.invalidateQueries({ queryKey: ['matches'] })
+          // Only ['match-probs']: /api/matches carries no probability data, and ['matches']
+          // is already refreshed by matches_update on every tick.
           queryClient.invalidateQueries({ queryKey: ['match-probs'] })
           break
         case 'value_flags_update':
           queryClient.invalidateQueries({ queryKey: ['value-radar'] })
+          // odds-sync writes odds_snapshots in the same tick (snapshots don't notify),
+          // so a value-flag NOTIFY is our cue to refresh the Match Center odds table too.
+          queryClient.invalidateQueries({ queryKey: ['match-odds'] })
           break
         case 'news_items_update':
           queryClient.invalidateQueries({ queryKey: ['match-news'] })
+          queryClient.invalidateQueries({ queryKey: ['agent-feed'] })
           break
       }
     },

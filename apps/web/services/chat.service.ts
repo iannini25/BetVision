@@ -1,9 +1,9 @@
 import 'server-only'
 import { and, asc, desc, eq, inArray, or } from 'drizzle-orm'
+import { BOOKMAKERS_PARSING } from '@betv/shared'
 import { db, schema } from '@/lib/db'
 
 const DISCLAIMER = 'Informação estatística, não recomendação de aposta.'
-const BOOKMAKERS = ['Bet365', 'Betano', 'Sportingbet', 'Pixbet', '1xBet', 'Betfair', 'KTO', 'Stake', 'EstrelaBet']
 
 export type BetVerdict = 'value' | 'fair' | 'overpriced'
 
@@ -88,7 +88,7 @@ function parsePastedBet(message: string): ParsedBet | null {
   const market = detectMarket(message)
   if (!market) return null
 
-  const bookmaker = BOOKMAKERS.find((b) => message.toLowerCase().includes(b.toLowerCase()))
+  const bookmaker = BOOKMAKERS_PARSING.find((b) => message.toLowerCase().includes(b.toLowerCase()))
   return { odds, bookmaker, market: market.market, outcomeKind: market.outcomeKind }
 }
 

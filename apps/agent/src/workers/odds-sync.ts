@@ -1,8 +1,8 @@
 import { and, eq, ne } from 'drizzle-orm'
+import { round2, BOOKMAKERS_QUOTING } from '@betv/shared'
 import { db, schema, pool } from '../lib/db'
 import { findValue } from '../engine'
 
-const BOOKMAKERS = ['Bet365', 'Betano', 'Sportingbet', 'Pixbet', '1xBet']
 const MIN_EDGE = 0.03
 // Probability clamp (avoid div-by-~0) and per-bookmaker spread around fair odds:
 // multiplier in [0.93, 1.09) lets some books sit below fair (no value) and some above.
@@ -45,7 +45,7 @@ export async function runOddsSync(): Promise<Record<string, unknown>> {
 
 function quoteBookmakers(probability: number): { bookmaker: string; odds: number }[] {
   const fair = 1 / Math.max(PROB_CLAMP.min, Math.min(PROB_CLAMP.max, probability))
-  return BOOKMAKERS.map((bookmaker) => ({
+  return BOOKMAKERS_QUOTING.map((bookmaker) => ({
     bookmaker,
     odds: round2(fair * (ODDS_SPREAD.base + Math.random() * ODDS_SPREAD.range)),
   }))
@@ -91,8 +91,4 @@ async function latestProbs(matchId: number): Promise<LatestProb[]> {
     [matchId]
   )
   return result.rows as LatestProb[]
-}
-
-function round2(n: number): number {
-  return Math.round(n * 100) / 100
 }

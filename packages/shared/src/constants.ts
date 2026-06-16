@@ -53,6 +53,21 @@ export const TICKER_EVENT_COLORS: Record<string, string> = {
   substitution: '#9AA3B8',
 }
 
+/** Neutral fallback for event types not present in TICKER_EVENT_COLORS. */
+export const TICKER_EVENT_FALLBACK_COLOR = '#9AA3B8'
+
+/** Colors for the agent-feed categories emitted by the NewsClassifier. */
+export const NEWS_CATEGORY_COLORS: Record<string, string> = {
+  'LESÃO': '#FB4D6D',
+  'ESCALAÇÃO': '#A78BFA',
+  'SUSPENSÃO': '#FBBF24',
+  'TÁTICA': '#38BDF8',
+  'TREINO': '#38BDF8',
+  'MERCADO': '#4ADE80',
+  'OUTRO': '#9AA3B8',
+}
+export const NEWS_CATEGORY_FALLBACK_COLOR = '#A78BFA'
+
 export const RIGIDITY_LABELS: Record<string, { label: string; color: string }> = {
   lenient: { label: 'LENIENTE', color: '#4ADE80' },
   moderate: { label: 'MODERADO', color: '#FBBF24' },

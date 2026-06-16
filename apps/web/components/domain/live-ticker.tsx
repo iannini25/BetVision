@@ -1,10 +1,12 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { LiveDot } from '@/components/ui/live-dot'
-import { TICKER_EVENT_COLORS } from '@betv/shared'
+import { TICKER_EVENT_COLORS, TICKER_EVENT_FALLBACK_COLOR } from '@betv/shared'
 import { staggerReveal } from '@/lib/motion'
 import { useReducedMotion } from '@/hooks/use-reduced-motion'
+import { useMatches } from '@/hooks/use-matches'
+import { eventShortLabel, eventDescription } from '@/lib/match'
 
 type TickerItem = {
   type: string
@@ -15,18 +17,20 @@ type TickerItem = {
   odds?: { from: number; to: number }
 }
 
-const MOCK_TICKER: TickerItem[] = [
-  { type: 'goal', label: 'GOL', minute: 67, text: 'BRA 2×1 ALE · Vinícius Jr.' },
-  { type: 'card', label: 'CARTÃO', minute: 64, text: 'Kimmich (ALE)' },
-  { type: 'odds', label: 'ODDS', text: 'BRA vence', odds: { from: 1.48, to: 1.42 } },
-  { type: 'var', label: 'VAR', minute: 58, text: 'checagem de pênalti · nada marcado' },
-  { type: 'corner', label: 'ESCANTEIO', minute: 62, text: 'Brasil (7º no jogo)' },
-  { type: 'odds', label: 'ODDS', text: 'Over 2.5', odds: { from: 1.83, to: 1.91 } },
-  { type: 'model', label: 'MODELO', text: 'Over 2.5 recalculado: 81%' },
-]
+const MAX_TICKER_ENTRIES = 14
+const IDLE_ENTRY: TickerItem = { type: 'model', label: 'AGENTE', text: 'Aguardando eventos ao vivo…' }
 
-type LiveTickerProps = {
-  items?: TickerItem[]
+/** Build ticker entries from the events of every live match, most recent first. */
+function tickerFromMatches(matches: any[] | undefined): TickerItem[] {
+  const entries: TickerItem[] = []
+  for (const m of matches ?? []) {
+    if (m.status !== 'live') continue
+    for (const e of m.events ?? []) {
+      entries.push({ type: e.type, label: eventShortLabel(e.type), minute: e.minute, text: eventDescription(e) })
+    }
+  }
+  entries.sort((a, b) => (b.minute ?? 0) - (a.minute ?? 0))
+  return entries.slice(0, MAX_TICKER_ENTRIES)
 }
 
 /** Odds that drifted DOWN are firming (value/likelier) -> green; UP -> danger. */
@@ -50,7 +54,7 @@ function TickerEntry({ item }: { item: TickerItem }) {
     <span className="flex items-center gap-2">
       <span
         className="font-bold text-[11px] tracking-wider"
-        style={{ color: TICKER_EVENT_COLORS[item.type] || '#A78BFA' }}
+        style={{ color: TICKER_EVENT_COLORS[item.type] ?? TICKER_EVENT_FALLBACK_COLOR }}
       >
         {item.label}
       </span>
@@ -65,7 +69,10 @@ function TickerEntry({ item }: { item: TickerItem }) {
   )
 }
 
-export function LiveTicker({ items = MOCK_TICKER }: LiveTickerProps) {
+export function LiveTicker() {
+  const { data: matches } = useMatches()
+  const derived = useMemo(() => tickerFromMatches(matches), [matches])
+  const items = derived.length > 0 ? derived : [IDLE_ENTRY]
   const reduced = useReducedMotion()
   const [paused, setPaused] = useState(false)
   const staticListRef = useRef<HTMLDivElement>(null)

@@ -1,7 +1,11 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
+import { NEWS_CATEGORY_COLORS, NEWS_CATEGORY_FALLBACK_COLOR } from '@betv/shared'
 import { LiveDot } from '@/components/ui/live-dot'
+import { Skeleton } from '@/components/ui/skeleton'
+import { useAgentFeed } from '@/hooks/use-matches'
+import { relativeTimeAgo } from '@/lib/match'
 import { staggerReveal, prefersReducedMotion } from '@/lib/motion'
 
 type FeedItem = {
@@ -13,18 +17,21 @@ type FeedItem = {
   impact: string
 }
 
-const MOCK_FEED: FeedItem[] = [
-  { category: 'LESÃO', categoryColor: '#FB4D6D', ago: 'há 12 min', text: 'Rüdiger sente a coxa no aquecimento; Schlotterbeck entrou na vaga.', source: 'Kicker', impact: 'cartões ALE ↑' },
-  { category: 'ESCALAÇÃO', categoryColor: '#A78BFA', ago: 'há 34 min', text: 'Scaloni confirma Messi entre os titulares contra o Marrocos.', source: 'TyC Sports', impact: 'ARG vence ↑' },
-  { category: 'SUSPENSÃO', categoryColor: '#FBBF24', ago: 'há 1 h', text: 'Tchouaméni cumpre suspensão; Camavinga deve ser titular pela França.', source: "L'Équipe", impact: 'meio-campo FRA' },
-  { category: 'ESCALAÇÃO', categoryColor: '#A78BFA', ago: 'há 2 h', text: 'Ancelotti fecha treino e testa linha de cinco contra a Alemanha.', source: 'GE', impact: 'escanteios BRA ↓' },
-]
-
-type AgentFeedProps = {
-  items?: FeedItem[]
+function toFeedItem(news: any): FeedItem {
+  const category = (news.category ?? 'NOTÍCIA').toUpperCase()
+  return {
+    category,
+    categoryColor: NEWS_CATEGORY_COLORS[category] ?? NEWS_CATEGORY_FALLBACK_COLOR,
+    ago: relativeTimeAgo(news.publishedAt ?? news.criadoEm),
+    text: news.summary || news.title,
+    source: news.source ?? '—',
+    impact: news.impact ?? '',
+  }
 }
 
-export function AgentFeed({ items = MOCK_FEED }: AgentFeedProps) {
+export function AgentFeed() {
+  const { data, isLoading } = useAgentFeed()
+  const items = useMemo<FeedItem[]>(() => (data ?? []).map(toFeedItem), [data])
   const listRef = useRef<HTMLDivElement>(null)
 
   // Build the feed in sequence on mount: each item slides up + fades in, ~80ms
@@ -53,6 +60,18 @@ export function AgentFeed({ items = MOCK_FEED }: AgentFeedProps) {
         <h2 className="text-xs font-bold tracking-widest text-text-secondary uppercase">Últimas do agente</h2>
       </div>
 
+      {isLoading && (
+        <div className="flex flex-col gap-4">
+          <Skeleton className="h-14 w-full" />
+          <Skeleton className="h-14 w-full" />
+          <Skeleton className="h-14 w-5/6" />
+        </div>
+      )}
+
+      {!isLoading && items.length === 0 && (
+        <p className="text-[13px] text-text-muted py-2">O agente ainda não classificou notícias.</p>
+      )}
+
       <div ref={listRef} className="flex flex-col gap-4">
         {items.map((item, i) => (
           <div
@@ -75,7 +94,7 @@ export function AgentFeed({ items = MOCK_FEED }: AgentFeedProps) {
               <span className="text-[11px] text-text-muted">{item.ago}</span>
             </div>
             <p className="text-[13px] leading-relaxed text-text-primary">{item.text}</p>
-            <span className="text-[11px] text-text-muted">{item.source} · impacto: {item.impact}</span>
+            <span className="text-[11px] text-text-muted">{item.source}{item.impact ? ` · impacto: ${item.impact}` : ''}</span>
           </div>
         ))}
       </div>

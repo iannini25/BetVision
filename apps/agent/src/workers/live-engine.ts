@@ -1,4 +1,5 @@
 import { asc, eq } from 'drizzle-orm'
+import { round2 } from '@betv/shared'
 import { db, schema, type MatchEvent } from '../lib/db'
 import {
   calculateMatchProbabilities,
@@ -229,7 +230,7 @@ function liveProbRows(
 }
 
 function probRow(matchId: number, market: string, outcome: string, probability: number) {
-  return { matchId, market, outcome, probability: Math.round(probability * 100) / 100, isLive: true }
+  return { matchId, market, outcome, probability: round2(probability), isLive: true }
 }
 
 async function teamById(id: number | null): Promise<TeamRow | undefined> {

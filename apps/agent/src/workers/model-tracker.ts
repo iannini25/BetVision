@@ -1,4 +1,5 @@
 import { isNotNull } from 'drizzle-orm'
+import { round3 } from '@betv/shared'
 import { db, schema } from '../lib/db'
 
 /**
@@ -15,5 +16,5 @@ export async function runModelTracker(): Promise<Record<string, unknown>> {
     ? resolved.reduce((sum, r) => sum + (r.brier ?? 0), 0) / resolved.length
     : 0
 
-  return { predictions: resolved.length, avgBrier: Math.round(avgBrier * 1000) / 1000 }
+  return { predictions: resolved.length, avgBrier: round3(avgBrier) }
 }
