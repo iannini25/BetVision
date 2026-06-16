@@ -14,6 +14,11 @@ export type SmRequest = { entity: string; url: string; cacheTtl: number }
 const DAY = 86400
 const WEEK = 7 * DAY
 
+// League + its current season — the cheap go-live check (validates token + season id).
+export function leagueCurrentSeason(): SmRequest {
+  return { entity: 'League', url: `${FOOTBALL}/leagues/${leagueId()}?include=currentSeason`, cacheTtl: DAY }
+}
+
 // Fixtures of a given day for the World Cup season (grid "Hoje").
 export function fixturesByDate(date: string): SmRequest {
   return {

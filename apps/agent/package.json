@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
+    "smoke:sportmonks": "tsx src/smoke-sportmonks.ts",
     "build": "tsc",
     "start": "pm2 start ecosystem.config.cjs",
     "start:dev": "node dist/index.js"
