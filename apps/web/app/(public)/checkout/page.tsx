@@ -38,7 +38,7 @@ export default function CheckoutPage() {
             <span className="font-display text-2xl font-extrabold">R$ 14,90</span>
           </div>
           <p className="font-mono text-[12px] text-text-secondary">pagamento único · 45 dias · a Copa inteira</p>
-          <p className="font-mono text-[11px] text-text-muted">+ taxa de processamento conforme o método escolhido</p>
+          <p className="font-mono text-[11px] text-text-muted">preço fixo · sem taxa extra · PIX, cartão ou boleto</p>
           <div className="h-px bg-border-subtle" />
           <span className="self-start rounded border border-border-subtle px-2 py-0.5 font-mono text-[10px] font-bold text-text-muted">18+</span>
           <Disclaimer18 />

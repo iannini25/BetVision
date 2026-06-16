@@ -1,33 +1,26 @@
 import { describe, it, expect } from 'vitest'
-import { calcFee, calcTotal, computeNewExpiry, canRenew, splitName } from '../payments'
+import { calcFee, netReceived, computeNewExpiry, canRenew, splitName } from '../payments'
 import { SUBSCRIPTION_PRICE_BRL, SUBSCRIPTION_DAYS } from '../constants'
 
 const BASE = SUBSCRIPTION_PRICE_BRL // 14.90
 
-describe('calcFee / calcTotal (taxa repassada ao cliente)', () => {
-  it('PIX = 0,99% sobre o valor', () => {
-    expect(calcFee(BASE, 'pix')).toBe(0.15) // 14.90 * 0.0099 = 0.14751 → 0.15
-    expect(calcTotal(BASE, 'pix')).toBe(15.05)
-  })
-
-  it('débito = 1,99%', () => {
-    expect(calcFee(BASE, 'debit')).toBe(0.3) // 0.296 → 0.30
-    expect(calcTotal(BASE, 'debit')).toBe(15.2)
-  })
-
-  it('crédito = 4,98% (taxa maior que PIX)', () => {
+describe('calcFee (custo INTERNO do MP — absorvido, não repassado)', () => {
+  it('PIX = 0,99%', () => expect(calcFee(BASE, 'pix')).toBe(0.15)) // 0.14751 → 0.15
+  it('débito = 1,99%', () => expect(calcFee(BASE, 'debit')).toBe(0.3)) // 0.296 → 0.30
+  it('crédito = 4,98% (custo maior que PIX)', () => {
     expect(calcFee(BASE, 'credit')).toBe(0.74) // 0.74202 → 0.74
-    expect(calcTotal(BASE, 'credit')).toBe(15.64)
-    expect(calcTotal(BASE, 'credit')).toBeGreaterThan(calcTotal(BASE, 'pix'))
+    expect(calcFee(BASE, 'credit')).toBeGreaterThan(calcFee(BASE, 'pix'))
   })
+  it('boleto = custo FIXO de R$ 3,49', () => expect(calcFee(BASE, 'boleto')).toBe(3.49))
+  it('saldo MP usa o custo de crédito (conservador)', () => expect(calcFee(BASE, 'wallet')).toBe(calcFee(BASE, 'credit')))
+})
 
-  it('boleto = taxa FIXA de R$ 3,49 (não percentual)', () => {
-    expect(calcFee(BASE, 'boleto')).toBe(3.49)
-    expect(calcTotal(BASE, 'boleto')).toBe(18.39)
-  })
-
-  it('saldo MP usa a taxa de crédito (conservador)', () => {
-    expect(calcFee(BASE, 'wallet')).toBe(calcFee(BASE, 'credit'))
+describe('netReceived (o que a BetV recebe após o corte do MP)', () => {
+  it('PIX deixa quase tudo', () => expect(netReceived(BASE, 'pix')).toBe(14.75)) // 14.90 - 0.15
+  it('boleto custa o fixo', () => expect(netReceived(BASE, 'boleto')).toBe(11.41)) // 14.90 - 3.49
+  it('cliente paga o MESMO em qualquer método (preço fixo)', () => {
+    // o preço cobrado é SUBSCRIPTION_PRICE_BRL; só o custo interno (e o net) varia por método
+    expect(SUBSCRIPTION_PRICE_BRL).toBe(14.9)
   })
 })
 

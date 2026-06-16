@@ -6,15 +6,18 @@ export type PaymentMethod = 'pix' | 'credit' | 'debit' | 'boleto' | 'wallet'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
-/** Taxa de processamento (em R$) que o cliente paga por cima do valor base. */
+/**
+ * Custo INTERNO do Mercado Pago por método (a BetV ABSORVE — NÃO repassa ao cliente).
+ * Referência para reconciliação/relatórios; o preço cobrado é sempre SUBSCRIPTION_PRICE_BRL fixo.
+ */
 export function calcFee(base: number, method: PaymentMethod): number {
   if (method === 'boleto') return MP_FEES.boletoFixed
   return round2(base * MP_FEES[method])
 }
 
-/** Total cobrado do cliente: valor base + taxa de processamento do método. */
-export function calcTotal(base: number, method: PaymentMethod): number {
-  return round2(base + calcFee(base, method))
+/** Quanto a BetV efetivamente recebe após o corte do MP (valor cobrado − custo do método). */
+export function netReceived(base: number, method: PaymentMethod): number {
+  return round2(base - calcFee(base, method))
 }
 
 /**

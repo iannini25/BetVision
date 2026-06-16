@@ -4,7 +4,6 @@ import {
   SUBSCRIPTION_DAYS,
   SUBSCRIPTION_PRICE_BRL,
   calcFee,
-  calcTotal,
   computeNewExpiry,
   isValidCpf,
   onlyDigits,
@@ -49,12 +48,14 @@ export async function createPayment(
   const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1)
   if (!user) throw new Error('Usuário não encontrado')
 
+  // Preço FIXO em todos os métodos: a taxa do MP é ABSORVIDA, não repassada.
+  // `feeAmount` guarda o custo interno do método só p/ reconciliação (não entra no que o cliente paga).
+  const amount = SUBSCRIPTION_PRICE_BRL
   const fee = calcFee(SUBSCRIPTION_PRICE_BRL, method)
-  const total = calcTotal(SUBSCRIPTION_PRICE_BRL, method)
 
   const [row] = await db
     .insert(payments)
-    .values({ userId, amount: total, feeAmount: fee, method, status: 'pending' })
+    .values({ userId, amount, feeAmount: fee, method, status: 'pending' })
     .returning()
 
   const formCpf = onlyDigits(form.payer?.identification?.number ?? '')
@@ -64,7 +65,7 @@ export async function createPayment(
 
   const req: MpPaymentRequest = {
     externalReference: row.id,
-    amount: total,
+    amount,
     method,
     description: 'BetV — Passe da Copa (45 dias)',
     payer: {
