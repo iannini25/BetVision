@@ -126,7 +126,7 @@ export async function createPayment(
   return {
     paymentId: row.id,
     status: res.status,
-    subToken: mintPaymentSubToken(row.id),
+    subToken: mintPaymentSubToken(row.id, new Date(row.criadoEm).getTime()),
     pix: method === 'pix' ? { qrCodeBase64: res.pixQrCodeBase64 ?? null, copiaECola: res.pixQrCode ?? null } : undefined,
     boletoUrl: res.boletoUrl ?? null,
   }
@@ -215,6 +215,8 @@ async function onApproved(userId: string, method: string): Promise<void> {
  * Garante (idempotente) um Customer do MP para o usuário e guarda o id.
  * Transação com SELECT FOR UPDATE na linha do user: dois cadastros simultâneos do mesmo e-mail
  * serializam — o 2º vê o mpCustomerId já gravado e NÃO cria um customer duplicado no MP.
+ * O lock cobre a chamada ao MP, mas o cliente MP tem timeout (15s) que limita a duração do lock;
+ * é um fluxo de baixa frequência (cadastro), então o trade-off é aceitável.
  */
 export async function createCustomerForUser(userId: string): Promise<string> {
   return db.transaction(async (tx) => {

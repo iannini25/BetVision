@@ -22,9 +22,10 @@ describe('payment-sub-token', () => {
     const t = signPaymentSubToken(PID, SECRET, 60_000, now)
     expect(verifyPaymentSubToken(t, PID, SECRET, now + 60_001)).toBe(false)
   })
-  it('rejeita lixo / vazio', () => {
+  it('rejeita lixo / vazio / sig não-hex', () => {
     expect(verifyPaymentSubToken('', PID, SECRET, now)).toBe(false)
     expect(verifyPaymentSubToken('semponto', PID, SECRET, now)).toBe(false)
-    expect(verifyPaymentSubToken('123.deadbeef', PID, SECRET, now)).toBe(false)
+    expect(verifyPaymentSubToken(`${now + 60_000}.deadbeef`, PID, SECRET, now)).toBe(false)
+    expect(verifyPaymentSubToken(`${now + 60_000}.zzzznothex`, PID, SECRET, now)).toBe(false)
   })
 })

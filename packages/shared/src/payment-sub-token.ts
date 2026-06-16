@@ -27,6 +27,7 @@ export function verifyPaymentSubToken(
   const exp = Number(token.slice(0, dot))
   const sig = token.slice(dot + 1)
   if (!Number.isFinite(exp) || exp < nowMs) return false
+  if (!/^[0-9a-f]+$/i.test(sig)) return false // só-hex: comparação honesta em tempo constante abaixo
 
   const expected = createHmac('sha256', secret).update(`${paymentId}.${exp}`).digest('hex')
   const expectedBuf = Buffer.from(expected, 'hex')

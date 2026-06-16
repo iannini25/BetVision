@@ -11,9 +11,13 @@ const secret = new TextEncoder().encode(RAW_SECRET)
 const SECURE_COOKIE = (process.env.APP_URL ?? '').startsWith('https://')
 const SUB_TOKEN_TTL_MS = 60 * 60 * 1000
 
-/** Token que autoriza o cliente a assinar a própria linha de pagamento no WebSocket. */
-export function mintPaymentSubToken(paymentId: string): string {
-  return signPaymentSubToken(paymentId, RAW_SECRET, SUB_TOKEN_TTL_MS)
+/**
+ * Token que autoriza o cliente a assinar a própria linha de pagamento no WebSocket.
+ * `issuedAtMs` ancora a expiração na CRIAÇÃO do pagamento (não em cada poll), senão o polling
+ * do status renovaria o TTL para sempre.
+ */
+export function mintPaymentSubToken(paymentId: string, issuedAtMs: number = Date.now()): string {
+  return signPaymentSubToken(paymentId, RAW_SECRET, SUB_TOKEN_TTL_MS, issuedAtMs)
 }
 
 type CheckoutPayload = { userId: string; scope: 'checkout' }

@@ -18,7 +18,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     paymentId: payment.id,
     status: payment.status,
     method: payment.method,
-    subToken: mintPaymentSubToken(payment.id), // p/ reassinar a linha no WS após refresh/resume
+    subToken: mintPaymentSubToken(payment.id, new Date(payment.criadoEm).getTime()), // TTL ancorado na criação
     pix:
       payment.method === 'pix'
         ? { qrCodeBase64: payment.pixQrCode, copiaECola: payment.pixCopiaECola }

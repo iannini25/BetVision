@@ -43,6 +43,8 @@ export async function runSubscriptionExpiry(): Promise<Record<string, unknown>> 
 
   let sent = 0
   for (const row of due) {
+    // Reaplica o predicado puro (testado) como fonte única da fronteira — defesa se o SQL divergir.
+    if (!isWarningDue({ status: 'active', expiraEm: new Date(row.expiraEm), expiryWarnedAt: null }, now, EXPIRATION_WARNING_DAYS)) continue
     const daysLeft = daysUntil(new Date(row.expiraEm), now)
     await sendExpirationWarningEmail(row.email, row.name, daysLeft)
     await db.update(schema.subscriptions).set({ expiryWarnedAt: new Date() }).where(eq(schema.subscriptions.id, row.subId))
