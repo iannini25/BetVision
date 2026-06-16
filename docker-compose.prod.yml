@@ -37,7 +37,7 @@ services:
       - AI_API_KEY=${AI_API_KEY:-}
       - AI_MODEL_ANALYSIS=${AI_MODEL_ANALYSIS:-claude-opus-4-8}
       - AI_MODEL_CHAT=${AI_MODEL_CHAT:-claude-sonnet-4-6}
-      - AI_EMBEDDING_MODEL=${AI_EMBEDDING_MODEL:-voyage-3.5}
+      - AI_EMBEDDING_MODEL=${AI_EMBEDDING_MODEL:-}
       - RESEND_API_KEY=${RESEND_API_KEY:-}
       - RESEND_FROM=${RESEND_FROM:-BetV <noreply@betv.online>}
       - MP_ACCESS_TOKEN=${MP_ACCESS_TOKEN:-}
@@ -53,6 +53,6 @@ services:
       - AI_API_KEY=${AI_API_KEY:-}
       - AI_MODEL_ANALYSIS=${AI_MODEL_ANALYSIS:-claude-opus-4-8}
       - AI_MODEL_CHAT=${AI_MODEL_CHAT:-claude-sonnet-4-6}
-      - AI_EMBEDDING_MODEL=${AI_EMBEDDING_MODEL:-voyage-3.5}
+      - AI_EMBEDDING_MODEL=${AI_EMBEDDING_MODEL:-}
       - RESEND_API_KEY=${RESEND_API_KEY:-}
       - RESEND_FROM=${RESEND_FROM:-BetV <noreply@betv.online>}
