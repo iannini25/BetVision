@@ -50,6 +50,22 @@ describe('RealMercadoPagoClient', () => {
     expect(out).toMatchObject({ id: '999', status: 'pending', pixQrCode: 'QR', pixQrCodeBase64: 'B64' })
   })
 
+  it('wallet (saldo MP) não envia token/issuer de cartão', async () => {
+    let body: Record<string, unknown> = {}
+    const client = new RealMercadoPagoClient({
+      accessToken: 't',
+      sleep: noSleep,
+      fetchFn: (async (_url: string, init: RequestInit) => {
+        body = JSON.parse(init.body as string)
+        return res(201, { id: 1, status: 'pending' })
+      }) as unknown as typeof fetch,
+    })
+    await client.createPayment({ ...pixReq, method: 'wallet', paymentMethodId: 'account_money', token: 'should-not-send' })
+    expect(body.payment_method_id).toBe('account_money')
+    expect(body.token).toBeUndefined()
+    expect(body.issuer_id).toBeUndefined()
+  })
+
   it('re-tenta um 429 e então sucede', async () => {
     let calls = 0
     const client = new RealMercadoPagoClient({

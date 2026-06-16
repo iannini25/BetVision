@@ -43,6 +43,8 @@ services:
       - MP_ACCESS_TOKEN=${MP_ACCESS_TOKEN:-}
       - MP_PUBLIC_KEY=${MP_PUBLIC_KEY:-}
       - MP_WEBHOOK_SECRET=${MP_WEBHOOK_SECRET:-}
+      # Webhook mock fica DESLIGADO na VPS por padrão; só liga com ALLOW_MOCK_PAYMENTS=true no .env (demo).
+      - ALLOW_MOCK_PAYMENTS=${ALLOW_MOCK_PAYMENTS:-}
 
   agent:
     environment:

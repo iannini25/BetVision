@@ -47,6 +47,8 @@ services:
       - MP_ACCESS_TOKEN=${MP_ACCESS_TOKEN:-}
       - MP_PUBLIC_KEY=${MP_PUBLIC_KEY:-}
       - MP_WEBHOOK_SECRET=${MP_WEBHOOK_SECRET:-}
+      # Demo local: libera o webhook mock ("simular aprovação"). A prod (overlay) sobrescreve.
+      - ALLOW_MOCK_PAYMENTS=true
     expose:
       - "3000"
     depends_on:

@@ -20,10 +20,14 @@ export async function registerForCheckout(input: CadastroInput): Promise<Cadastr
 
   let userId: string
   if (existing) {
-    await db
-      .update(users)
-      .set({ name: input.name, phone: onlyDigits(input.phone), atualizadoEm: new Date() })
-      .where(eq(users.id, existing.id))
+    // Cadastro abandonado retomado: reaproveita a linha SEM sobrescrever nome/telefone (um terceiro
+    // não pode alterar os dados de outro e-mail). Só preenche o que ainda estiver vazio.
+    const patch: Partial<{ name: string; phone: string }> = {}
+    if (!existing.name) patch.name = input.name
+    if (!existing.phone) patch.phone = onlyDigits(input.phone)
+    if (Object.keys(patch).length) {
+      await db.update(users).set({ ...patch, atualizadoEm: new Date() }).where(eq(users.id, existing.id))
+    }
     userId = existing.id
   } else {
     const [created] = await db

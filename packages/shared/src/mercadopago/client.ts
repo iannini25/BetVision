@@ -146,7 +146,9 @@ export class RealMercadoPagoClient implements MercadoPagoClient {
     }
     if (req.method === 'pix') return { ...base, payment_method_id: PIX_METHOD_ID }
     if (req.method === 'boleto') return { ...base, payment_method_id: BOLETO_METHOD_ID }
-    // crédito/débito/saldo: o Brick já resolveu token + método + parcelas.
+    // Saldo MP (wallet): sem token/issuer de cartão — só o método que o Brick resolveu.
+    if (req.method === 'wallet') return { ...base, payment_method_id: req.paymentMethodId }
+    // Cartão (crédito/débito): o Brick já resolveu token + método + parcelas + issuer.
     return {
       ...base,
       token: req.token,
@@ -277,6 +279,15 @@ export class MockMercadoPagoClient implements MercadoPagoClient {
 /** Fonte única do gate de mock do Mercado Pago. */
 export function isMockMP(): boolean {
   return !process.env.MP_ACCESS_TOKEN
+}
+
+/**
+ * O branch mock do webhook (aprova por {paymentId,status} sem assinatura) NUNCA pode ficar
+ * exposto por engano num ambiente público: só roda fora de produção OU com opt-in explícito
+ * (ALLOW_MOCK_PAYMENTS=true) — usado para a demo em mock na VPS.
+ */
+export function mockPaymentsAllowed(): boolean {
+  return process.env.NODE_ENV !== 'production' || process.env.ALLOW_MOCK_PAYMENTS === 'true'
 }
 
 export function getMercadoPagoClient(): MercadoPagoClient {

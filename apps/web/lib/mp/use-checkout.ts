@@ -109,6 +109,14 @@ export function useCheckout(opts: { renew?: boolean } = {}) {
 
   const reset = useCallback(() => {
     sessionStorage.removeItem(PID_KEY)
+    if (typeof window !== 'undefined') {
+      // Também remove ?pid= da URL, senão o resume re-semeia o id terminal e prende a tela.
+      const u = new URL(window.location.href)
+      if (u.searchParams.has('pid')) {
+        u.searchParams.delete('pid')
+        window.history.replaceState({}, '', u)
+      }
+    }
     if (paymentId) queryClient.removeQueries({ queryKey: ['payment', paymentId] })
     setPaymentId(null)
   }, [paymentId, queryClient])
@@ -117,7 +125,8 @@ export function useCheckout(opts: { renew?: boolean } = {}) {
     mock: config.data?.mock ?? null,
     publicKey: config.data?.publicKey ?? null,
     name: me.data?.name ?? '',
-    loading: config.isLoading || me.isLoading,
+    loading: config.isLoading, // o formulário não depende do nome; só o config gate
+    meReady: !me.isLoading,
     snapshot: status.data ?? null,
     paymentId,
     createPayment,

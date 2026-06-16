@@ -1,11 +1,14 @@
 import { db, schema } from '@/lib/db'
-import { eq, and } from 'drizzle-orm'
+import { eq, and, desc } from 'drizzle-orm'
 import {
   SUBSCRIPTION_DAYS,
   SUBSCRIPTION_PRICE_BRL,
   calcFee,
   calcTotal,
   computeNewExpiry,
+  isValidCpf,
+  onlyDigits,
+  splitName,
   type PaymentMethod,
 } from '@betv/shared'
 import { getMercadoPagoClient, isMockMP, type MpPaymentRequest } from '@betv/shared/mercadopago/client'
@@ -54,8 +57,10 @@ export async function createPayment(
     .values({ userId, amount: total, feeAmount: fee, method, status: 'pending' })
     .returning()
 
-  const cpf = form.payer?.identification?.number ?? user.cpf ?? undefined
-  const [firstName, ...rest] = (user.name || '').split(' ')
+  const formCpf = onlyDigits(form.payer?.identification?.number ?? '')
+  const validFormCpf = formCpf && isValidCpf(formCpf) ? formCpf : ''
+  const cpf = validFormCpf || user.cpf || undefined
+  const { firstName, lastName } = splitName(user.name)
 
   const req: MpPaymentRequest = {
     externalReference: row.id,
@@ -65,8 +70,8 @@ export async function createPayment(
     payer: {
       email: form.payer?.email || user.email,
       firstName: firstName || undefined,
-      lastName: rest.join(' ') || undefined,
-      identification: cpf ? { type: form.payer?.identification?.type || 'CPF', number: cpf } : undefined,
+      lastName: lastName || undefined,
+      identification: cpf ? { type: 'CPF', number: cpf } : undefined,
     },
     token: form.token,
     installments: form.installments,
@@ -91,9 +96,9 @@ export async function createPayment(
     })
     .where(eq(payments.id, row.id))
 
-  // Captura o CPF quando o cliente o informa (cartão/boleto) e ainda não temos.
-  if (form.payer?.identification?.number && !user.cpf) {
-    await db.update(users).set({ cpf: form.payer.identification.number, atualizadoEm: new Date() }).where(eq(users.id, userId))
+  // Captura o CPF (validado, só dígitos) quando o cliente o informa e ainda não temos.
+  if (validFormCpf && !user.cpf) {
+    await db.update(users).set({ cpf: validFormCpf, atualizadoEm: new Date() }).where(eq(users.id, userId))
   }
 
   return {
@@ -136,6 +141,7 @@ export async function processWebhook(
       .select()
       .from(subscriptions)
       .where(and(eq(subscriptions.userId, payment.userId), eq(subscriptions.status, 'active')))
+      .orderBy(desc(subscriptions.expiraEm)) // determinístico: estende sempre o passe mais recente
       .for('update')
       .limit(1)
 
@@ -187,11 +193,11 @@ export async function createCustomerForUser(userId: string): Promise<string> {
   if (!user) throw new Error('Usuário não encontrado')
   if (user.mpCustomerId) return user.mpCustomerId
 
-  const [firstName, ...rest] = (user.name || '').split(' ')
+  const { firstName, lastName } = splitName(user.name)
   const { id } = await getMercadoPagoClient().createCustomer({
     email: user.email,
     firstName: firstName || undefined,
-    lastName: rest.join(' ') || undefined,
+    lastName: lastName || undefined,
   })
   await db.update(users).set({ mpCustomerId: id, atualizadoEm: new Date() }).where(eq(users.id, userId))
   return id

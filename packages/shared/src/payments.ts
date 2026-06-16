@@ -26,3 +26,22 @@ export function computeNewExpiry(activeExpiry: Date | null, now: Date, days: num
   const startFrom = activeExpiry && activeExpiry.getTime() > now.getTime() ? activeExpiry : now
   return new Date(startFrom.getTime() + days * DAY_MS)
 }
+
+/** Dias inteiros (para cima) até a data, a partir de agora. */
+export function daysUntil(date: Date, now: Date): number {
+  return Math.ceil((date.getTime() - now.getTime()) / DAY_MS)
+}
+
+/** Renovação liberada apenas quando faltam <= unlockDays para expirar (ou já expirou / não há passe). */
+export function canRenew(activeExpiry: Date | null, now: Date, unlockDays: number): boolean {
+  if (!activeExpiry) return true
+  return daysUntil(activeExpiry, now) <= unlockDays
+}
+
+/** Separa nome completo em firstName/lastName (normaliza espaços; nome único repete no sobrenome p/ o MP). */
+export function splitName(fullName: string): { firstName: string; lastName: string } {
+  const parts = (fullName || '').trim().split(/\s+/).filter(Boolean)
+  const firstName = parts[0] ?? ''
+  const lastName = parts.length > 1 ? parts.slice(1).join(' ') : firstName
+  return { firstName, lastName }
+}

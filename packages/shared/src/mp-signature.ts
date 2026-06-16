@@ -13,7 +13,10 @@ export function parseMpSignatureHeader(header: string | null | undefined): { ts:
   let ts = ''
   let v1 = ''
   for (const part of header.split(',')) {
-    const [key, value] = part.split('=').map((s) => s.trim())
+    const sep = part.indexOf('=') // split só no 1º '=' (valor pode conter '=', ex.: base64)
+    if (sep === -1) continue
+    const key = part.slice(0, sep).trim()
+    const value = part.slice(sep + 1).trim()
     if (key === 'ts') ts = value
     else if (key === 'v1') v1 = value
   }

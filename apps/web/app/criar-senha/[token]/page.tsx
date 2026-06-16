@@ -66,7 +66,7 @@ export default function CriarSenhaPage({ params }: { params: { token: string } }
       <div ref={columnRef} className="w-full max-w-sm flex flex-col items-center gap-6">
         <h1 className="font-display font-bold text-2xl">Crie sua senha</h1>
         {done ? (
-          <div className="flex flex-col items-center gap-3 text-center">
+          <div className="flex flex-col items-center gap-3 text-center" role="status" aria-live="polite">
             <div ref={markRef} className="text-accent-green-text">
               <TickCircle size={44} variant="Bold" color="currentColor" aria-hidden="true" />
             </div>

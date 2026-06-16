@@ -17,7 +17,7 @@ const BrickCheckout = dynamic(() => import('./brick-checkout'), {
 })
 
 export function CheckoutClient({ renew = false }: { renew?: boolean }) {
-  const { mock, publicKey, name, loading, snapshot, paymentId, createPayment, reset } = useCheckout({ renew })
+  const { mock, publicKey, name, loading, meReady, snapshot, paymentId, createPayment, reset } = useCheckout({ renew })
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
@@ -45,7 +45,8 @@ export function CheckoutClient({ renew = false }: { renew?: boolean }) {
   if (loading || mock === null) return <Skeleton className="h-64 w-full rounded-card" />
 
   // Sem cadastro/sessão não há ator para criar o pagamento — guia o usuário ao cadastro.
-  if (!renew && !name) {
+  // Só decide depois que /api/mp/me respondeu (evita flash de "ir para cadastro").
+  if (!renew && meReady && !name) {
     return (
       <div className="flex flex-col items-center gap-4 text-center">
         <p className="text-text-secondary">Comece criando seu acesso para liberar o pagamento.</p>

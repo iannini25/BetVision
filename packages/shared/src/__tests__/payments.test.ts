@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { calcFee, calcTotal, computeNewExpiry } from '../payments'
+import { calcFee, calcTotal, computeNewExpiry, canRenew, splitName } from '../payments'
 import { SUBSCRIPTION_PRICE_BRL, SUBSCRIPTION_DAYS } from '../constants'
 
 const BASE = SUBSCRIPTION_PRICE_BRL // 14.90
@@ -51,4 +51,25 @@ describe('computeNewExpiry (extensão do passe)', () => {
     const expiry = computeNewExpiry(past, now, days)
     expect(expiry.getTime()).toBe(now.getTime() + days * 86_400_000)
   })
+})
+
+describe('canRenew (janela de renovação)', () => {
+  const now = new Date('2026-06-16T12:00:00Z')
+  it('sem passe ativo → pode', () => expect(canRenew(null, now, 2)).toBe(true))
+  it('faltam 5 dias → NÃO pode', () => expect(canRenew(new Date('2026-06-21T12:00:00Z'), now, 2)).toBe(false))
+  it('faltam 2 dias → pode', () => expect(canRenew(new Date('2026-06-18T12:00:00Z'), now, 2)).toBe(true))
+  it('já expirado → pode', () => expect(canRenew(new Date('2026-06-10T12:00:00Z'), now, 2)).toBe(true))
+})
+
+describe('splitName', () => {
+  it('nome completo → primeiro + resto', () => {
+    expect(splitName('Bernardo Iannini Silva')).toEqual({ firstName: 'Bernardo', lastName: 'Iannini Silva' })
+  })
+  it('nome único repete no sobrenome (MP exige last_name)', () => {
+    expect(splitName('Madonna')).toEqual({ firstName: 'Madonna', lastName: 'Madonna' })
+  })
+  it('normaliza espaços extras', () => {
+    expect(splitName('  João   Silva ')).toEqual({ firstName: 'João', lastName: 'Silva' })
+  })
+  it('vazio', () => expect(splitName('')).toEqual({ firstName: '', lastName: '' }))
 })

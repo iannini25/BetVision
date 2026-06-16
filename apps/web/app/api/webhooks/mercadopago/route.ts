@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { processWebhook } from '@/services/payment.service'
-import { getMercadoPagoClient, isMockMP } from '@betv/shared/mercadopago/client'
+import { getMercadoPagoClient, isMockMP, mockPaymentsAllowed } from '@betv/shared/mercadopago/client'
 import { verifyMpSignature, parseMpSignatureHeader } from '@betv/shared/mp-signature'
 
 export async function POST(request: Request) {
@@ -12,7 +12,9 @@ export async function POST(request: Request) {
     }
 
     // Mock (sem chave): aceita {paymentId, status} — ex.: botão "simular aprovação" do checkout.
+    // Nunca exposto por engano: exige fora-de-produção OU opt-in explícito (ALLOW_MOCK_PAYMENTS).
     if (isMockMP()) {
+      if (!mockPaymentsAllowed()) return NextResponse.json({ error: 'Indisponível' }, { status: 404 })
       if (body.paymentId) await processWebhook(String(body.paymentId), String(body.status || 'approved'))
       return NextResponse.json({ ok: true })
     }
@@ -22,15 +24,18 @@ export async function POST(request: Request) {
     const dataId = body.data?.id
     if (!dataId) return NextResponse.json({ ok: true }) // outros tópicos: ignora silenciosamente
 
+    // Sem secret em modo real é configuração inválida — falha FECHADO (nunca processa sem assinatura).
     const secret = process.env.MP_WEBHOOK_SECRET
-    if (secret) {
-      const parts = parseMpSignatureHeader(request.headers.get('x-signature'))
-      const requestId = request.headers.get('x-request-id') || ''
-      const ok =
-        parts &&
-        verifyMpSignature(secret, { dataId: String(dataId).toLowerCase(), requestId, ts: parts.ts, v1: parts.v1 })
-      if (!ok) return NextResponse.json({ error: 'Assinatura inválida' }, { status: 401 })
+    if (!secret) {
+      console.error('MP_WEBHOOK_SECRET ausente em modo real — webhook rejeitado')
+      return NextResponse.json({ error: 'Configuração ausente' }, { status: 500 })
     }
+    const parts = parseMpSignatureHeader(request.headers.get('x-signature'))
+    const requestId = request.headers.get('x-request-id') || ''
+    const ok =
+      parts &&
+      verifyMpSignature(secret, { dataId: String(dataId).toLowerCase(), requestId, ts: parts.ts, v1: parts.v1 })
+    if (!ok) return NextResponse.json({ error: 'Assinatura inválida' }, { status: 401 })
 
     const mpPayment = await getMercadoPagoClient().getPayment(String(dataId))
     if (!mpPayment.externalReference) {
