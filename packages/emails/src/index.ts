@@ -51,6 +51,32 @@ export async function sendPasswordResetEmail(to: string, token: string) {
   await resend!.emails.send({ from: fromAddress, to, subject, html })
 }
 
+export async function sendPaymentReceivedEmail(to: string, name: string, setPasswordLink: string) {
+  const subject = 'Recebemos seu pagamento — BetV'
+  const html = `
+    <h1>Pagamento confirmado, ${name}!</h1>
+    <p>Recebemos seu pagamento e seu passe da Copa já está ativo (45 dias).</p>
+    <p>Falta só um passo: crie sua senha para acessar a sua conta.</p>
+    <a href="${setPasswordLink}">Criar minha senha</a>
+    <p style="color:#666;font-size:12px">Este link expira em 24 horas. Conteúdo informativo, não é recomendação de aposta. 18+.</p>
+  `
+  if (isMock) return log('payment-received', to, subject)
+  await resend!.emails.send({ from: fromAddress, to, subject, html })
+}
+
+export async function sendRenewalConfirmationEmail(to: string, name: string, expiraEm: Date) {
+  const ateQuando = expiraEm.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
+  const subject = 'Passe renovado — BetV'
+  const html = `
+    <h1>Renovação confirmada, ${name}!</h1>
+    <p>Seu passe BetV foi renovado e segue ativo até <strong>${ateQuando}</strong>.</p>
+    <a href="${process.env.APP_URL}/hoje">Continuar no BetV</a>
+    <p style="color:#666;font-size:12px">Conteúdo informativo, não é recomendação de aposta. 18+.</p>
+  `
+  if (isMock) return log('renewal-confirmation', to, subject)
+  await resend!.emails.send({ from: fromAddress, to, subject, html })
+}
+
 export async function sendExpirationWarningEmail(to: string, name: string, daysLeft: number) {
   const subject = `Seu passe BetV expira em ${daysLeft} dias`
   const html = `
