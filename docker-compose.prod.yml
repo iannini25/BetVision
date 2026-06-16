@@ -1,0 +1,27 @@
+# Production overlay — applied on top of docker-compose.yml on the VPS:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
+#
+# Why this file exists:
+#  - Docker publishes ports straight into iptables, BYPASSING ufw. So the debug
+#    port mappings in the base file (Postgres 5433, Redis 6380, Uptime 3001) would
+#    be reachable from the internet even with ufw allowing only 22/80/443.
+#    Here we unpublish Postgres/Redis entirely (reachable only on the compose network)
+#    and bind Uptime Kuma to loopback (reach it via SSH tunnel).
+#  - Injects production APP_URL + AUTH_SESSION_SECRET from the VPS .env (interpolation).
+#
+# Requires Docker Compose v2.24+ for the !reset / !override merge directives.
+services:
+  postgres:
+    ports: !reset []
+
+  redis:
+    ports: !reset []
+
+  uptime-kuma:
+    ports: !override
+      - "127.0.0.1:3001:3001"
+
+  web:
+    environment:
+      - APP_URL=${APP_URL:-http://localhost}
+      - AUTH_SESSION_SECRET=${AUTH_SESSION_SECRET:?set AUTH_SESSION_SECRET in the VPS .env}
