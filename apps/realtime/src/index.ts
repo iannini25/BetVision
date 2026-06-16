@@ -8,6 +8,9 @@ const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://betv:betv_secret@
 const RECONNECT_DELAY_MS = 2000
 
 const clients = new Set<WebSocket>()
+// Assinaturas por pagamento: payments_update só vai para quem assinou AQUELE id (sem broadcast
+// global de pagamentos, que vazaria a cadência de receita a qualquer cliente conectado).
+const paymentSubs = new Map<WebSocket, Set<string>>()
 
 async function start() {
   await connectListener()
@@ -22,11 +25,13 @@ async function start() {
     ws.on('message', (raw) => handleMessage(ws, raw.toString()))
     ws.on('close', () => {
       clients.delete(ws)
+      paymentSubs.delete(ws)
       logger.debug(`Client disconnected (total: ${clients.size})`)
     })
     ws.on('error', (err) => {
       logger.error({ err }, 'WebSocket error')
       clients.delete(ws)
+      paymentSubs.delete(ws)
     })
 
     ws.send(JSON.stringify({ type: 'connected', timestamp: Date.now() }))
@@ -79,16 +84,27 @@ async function connectListener(): Promise<void> {
 }
 
 function handleMessage(ws: WebSocket, raw: string): void {
-  let msg: { type?: string }
+  let msg: { type?: string; topic?: string; id?: number | string }
   try {
     msg = JSON.parse(raw)
   } catch {
     ws.send(JSON.stringify({ error: 'Invalid message format' }))
     return
   }
-  // Fan-out is server-wide today, so subscribe/unsubscribe need no per-client state;
-  // we only answer keepalive pings.
-  if (msg.type === 'ping') ws.send(JSON.stringify({ type: 'pong', timestamp: Date.now() }))
+  if (msg.type === 'ping') {
+    ws.send(JSON.stringify({ type: 'pong', timestamp: Date.now() }))
+    return
+  }
+  // Assinatura por pagamento: o checkout "escuta a própria linha" sem expor as dos outros.
+  if (msg.type === 'subscribe' && msg.topic === 'payment' && msg.id != null) {
+    let set = paymentSubs.get(ws)
+    if (!set) {
+      set = new Set()
+      paymentSubs.set(ws, set)
+    }
+    set.add(String(msg.id))
+  }
+  // Demais subscribes (ex.: matchId) seguem cobertos pelo fan-out global das tabelas esportivas.
 }
 
 function broadcast(data: { table: string; op: string; id: number | string }): void {
@@ -98,6 +114,14 @@ function broadcast(data: { table: string; op: string; id: number | string }): vo
     id: data.id,
     timestamp: Date.now(),
   })
+  // Pagamentos: entregar APENAS a quem assinou aquele id (sem fan-out global).
+  if (data.table === 'payments') {
+    const idStr = String(data.id)
+    for (const ws of clients) {
+      if (ws.readyState === WebSocket.OPEN && paymentSubs.get(ws)?.has(idStr)) ws.send(message)
+    }
+    return
+  }
   for (const ws of clients) {
     if (ws.readyState === WebSocket.OPEN) ws.send(message)
   }

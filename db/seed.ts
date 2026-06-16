@@ -30,7 +30,9 @@ async function seed() {
     $$ LANGUAGE plpgsql;
   `)
 
-  const tables = ['matches', 'probabilities', 'value_flags', 'news_items']
+  // 'payments' entra aqui mas o servidor de realtime só entrega payments_update a quem assinou
+  // aquele id (filtro por-cliente) — o checkout escuta a própria linha, sem broadcast global.
+  const tables = ['matches', 'probabilities', 'value_flags', 'news_items', 'payments']
   for (const t of tables) {
     await db.execute(sql.raw(`
       DROP TRIGGER IF EXISTS ${t}_notify ON ${t};
