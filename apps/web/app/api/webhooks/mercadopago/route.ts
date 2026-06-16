@@ -3,6 +3,12 @@ import { processWebhook } from '@/services/payment.service'
 import { getMercadoPagoClient, isMockMP, mockPaymentsAllowed } from '@betv/shared/mercadopago/client'
 import { verifyMpSignature, parseMpSignatureHeader } from '@betv/shared/mp-signature'
 
+// Aviso de config perigosa: chave real + flag de mock ligada (o mock já é inacessível via isMockMP,
+// mas a flag não deveria estar ligada em produção real).
+if (process.env.MP_ACCESS_TOKEN && process.env.ALLOW_MOCK_PAYMENTS === 'true') {
+  console.warn('[SEGURANÇA] ALLOW_MOCK_PAYMENTS=true com MP_ACCESS_TOKEN presente — remova a flag em produção.')
+}
+
 export async function POST(request: Request) {
   try {
     const body = (await request.json().catch(() => ({}))) as {

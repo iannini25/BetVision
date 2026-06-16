@@ -1,5 +1,5 @@
 import { db, schema } from '@/lib/db'
-import { eq, and, desc } from 'drizzle-orm'
+import { eq, and, desc, count, gt } from 'drizzle-orm'
 import {
   SUBSCRIPTION_DAYS,
   SUBSCRIPTION_PRICE_BRL,
@@ -19,6 +19,17 @@ const { payments, subscriptions, users, paymentCards } = schema
 
 const SET_PASSWORD_TOKEN_TYPE = 'set_password'
 const SET_PASSWORD_TTL_MS = 24 * 60 * 60 * 1000
+
+// Rate-limit de criação de pagamentos pendentes por usuário (anti-flood de QR PIX).
+const PENDING_RATE_WINDOW_MS = 10 * 60 * 1000
+const MAX_PENDING_PER_WINDOW = 5
+
+export class PaymentRateLimitError extends Error {
+  constructor() {
+    super('Muitos pagamentos em aberto. Aguarde alguns minutos e tente de novo.')
+    this.name = 'PaymentRateLimitError'
+  }
+}
 
 /** Forma do que o Payment Brick devolve no onSubmit (o mock-checkout produz a mesma forma). */
 export type BrickFormData = {
@@ -49,6 +60,14 @@ export async function createPayment(
 ): Promise<CreatePaymentResult> {
   const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1)
   if (!user) throw new Error('Usuário não encontrado')
+
+  // Anti-flood: limita pagamentos PENDING recentes por usuário.
+  const since = new Date(Date.now() - PENDING_RATE_WINDOW_MS)
+  const [pending] = await db
+    .select({ n: count() })
+    .from(payments)
+    .where(and(eq(payments.userId, userId), eq(payments.status, 'pending'), gt(payments.criadoEm, since)))
+  if ((pending?.n ?? 0) >= MAX_PENDING_PER_WINDOW) throw new PaymentRateLimitError()
 
   // Preço FIXO em todos os métodos: a taxa do MP é ABSORVIDA, não repassada.
   // `feeAmount` guarda o custo interno do método só p/ reconciliação (não entra no que o cliente paga).
@@ -192,20 +211,26 @@ async function onApproved(userId: string, method: string): Promise<void> {
   }
 }
 
-/** Garante (idempotente) um Customer do MP para o usuário e guarda o id. */
+/**
+ * Garante (idempotente) um Customer do MP para o usuário e guarda o id.
+ * Transação com SELECT FOR UPDATE na linha do user: dois cadastros simultâneos do mesmo e-mail
+ * serializam — o 2º vê o mpCustomerId já gravado e NÃO cria um customer duplicado no MP.
+ */
 export async function createCustomerForUser(userId: string): Promise<string> {
-  const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1)
-  if (!user) throw new Error('Usuário não encontrado')
-  if (user.mpCustomerId) return user.mpCustomerId
+  return db.transaction(async (tx) => {
+    const [user] = await tx.select().from(users).where(eq(users.id, userId)).for('update').limit(1)
+    if (!user) throw new Error('Usuário não encontrado')
+    if (user.mpCustomerId) return user.mpCustomerId
 
-  const { firstName, lastName } = splitName(user.name)
-  const { id } = await getMercadoPagoClient().createCustomer({
-    email: user.email,
-    firstName: firstName || undefined,
-    lastName: lastName || undefined,
+    const { firstName, lastName } = splitName(user.name)
+    const { id } = await getMercadoPagoClient().createCustomer({
+      email: user.email,
+      firstName: firstName || undefined,
+      lastName: lastName || undefined,
+    })
+    await tx.update(users).set({ mpCustomerId: id, atualizadoEm: new Date() }).where(eq(users.id, userId))
+    return id
   })
-  await db.update(users).set({ mpCustomerId: id, atualizadoEm: new Date() }).where(eq(users.id, userId))
-  return id
 }
 
 export async function listSavedCards(userId: string) {

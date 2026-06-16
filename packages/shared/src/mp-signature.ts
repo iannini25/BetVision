@@ -1,3 +1,4 @@
+import 'server-only' // server-only: verificação de assinatura nunca vai pro bundle do browser
 import { createHmac, timingSafeEqual } from 'node:crypto'
 
 /**

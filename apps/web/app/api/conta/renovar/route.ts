@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
-import { createPayment, type BrickFormData } from '@/services/payment.service'
+import { createPayment, PaymentRateLimitError, type BrickFormData } from '@/services/payment.service'
 import { getActiveSubscription } from '@/services/auth.service'
 import { canRenew, RENEWAL_UNLOCK_DAYS, type PaymentMethod } from '@betv/shared'
 import { MercadoPagoError } from '@betv/shared/mercadopago/client'
@@ -29,6 +29,7 @@ export async function POST(request: Request) {
     const result = await createPayment(session.userId, method, body.brickFormData ?? {})
     return NextResponse.json(result)
   } catch (error) {
+    if (error instanceof PaymentRateLimitError) return NextResponse.json({ error: error.message }, { status: 429 })
     if (error instanceof MercadoPagoError && error.status && error.status < 500) {
       return NextResponse.json({ error: error.message }, { status: error.status })
     }

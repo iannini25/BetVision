@@ -1,3 +1,4 @@
+import 'server-only' // barra inclusão acidental no bundle do browser (Access Token / lógica sensível)
 import type { PaymentMethod } from '../payments'
 
 /**
