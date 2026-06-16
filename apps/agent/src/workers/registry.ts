@@ -8,6 +8,7 @@ import { runNewsWatcher } from './news-watcher'
 import { runRagIndexer } from './rag-indexer'
 import { runModelTracker } from './model-tracker'
 import { runArchiver } from './archiver'
+import { runSubscriptionExpiry } from './subscription-expiry'
 import { isSportmonksMode } from '../providers'
 
 export type WorkerHandler = () => Promise<Record<string, unknown>>
@@ -26,6 +27,8 @@ const DEMO: WorkerDef[] = [
   { name: 'fixtures-sync', cron: '0 */2 * * * *', handler: runFixturesSync },
   { name: 'model-tracker', cron: '0 */2 * * * *', handler: runModelTracker },
   { name: 'archiver', cron: '30 */2 * * * *', handler: runArchiver },
+  // Demo: a cada minuto (p/ observar o e-mail disparar uma vez); idempotente via expiry_warned_at.
+  { name: 'subscription-expiry', cron: '0 * * * * *', handler: runSubscriptionExpiry },
 ]
 
 /**
@@ -44,6 +47,8 @@ const PROD: WorkerDef[] = [
   { name: 'fixtures-sync', cron: '0 0 */6 * * *', handler: runFixturesSync },
   { name: 'model-tracker', cron: '0 */5 * * * *', handler: runModelTracker },
   { name: 'archiver', cron: '0 0 * * * *', handler: runArchiver },
+  // Prod: diário às 09:00 UTC (06:00 BRT).
+  { name: 'subscription-expiry', cron: '0 0 9 * * *', handler: runSubscriptionExpiry },
 ]
 
 /** Explicit WORKER_PROFILE wins; otherwise prod when real Sportmonks is active, else demo. */

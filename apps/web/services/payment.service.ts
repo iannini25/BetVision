@@ -148,7 +148,8 @@ export async function processWebhook(
 
     const expiry = computeNewExpiry(activeSub ? new Date(activeSub.expiraEm) : null, now, SUBSCRIPTION_DAYS)
     if (activeSub) {
-      await tx.update(subscriptions).set({ expiraEm: expiry }).where(eq(subscriptions.id, activeSub.id))
+      // Renovou: zera o aviso de expiração para reabilitar no próximo ciclo.
+      await tx.update(subscriptions).set({ expiraEm: expiry, expiryWarnedAt: null }).where(eq(subscriptions.id, activeSub.id))
     } else {
       await tx.insert(subscriptions).values({ userId: payment.userId, status: 'active', inicioEm: now, expiraEm: expiry })
     }

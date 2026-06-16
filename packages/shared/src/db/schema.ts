@@ -36,6 +36,9 @@ export const subscriptions = pgTable('subscriptions', {
   status: varchar('status', { length: 20 }).notNull().default('active'),
   inicioEm: timestamp('inicio_em', { withTimezone: true }).defaultNow().notNull(),
   expiraEm: timestamp('expira_em', { withTimezone: true }).notNull(),
+  // Quando o e-mail de "expira em X dias" foi enviado neste ciclo (idempotência do cron).
+  // Zerado a cada renovação para reativar o aviso no próximo ciclo.
+  expiryWarnedAt: timestamp('expiry_warned_at', { withTimezone: true }),
   criadoEm: timestamp('criado_em', { withTimezone: true }).defaultNow().notNull(),
 })
 
