@@ -5,6 +5,10 @@ const SESSION_COOKIE = 'betv-session'
 const secret = new TextEncoder().encode(
   process.env.AUTH_SESSION_SECRET || 'dev-secret-change-me-in-production'
 )
+// Mark the cookie Secure only when actually served over HTTPS (derived from APP_URL),
+// not merely in production: during the HTTP-by-IP phase APP_URL is http://, so a Secure
+// cookie would never be sent back. Flips to Secure automatically once APP_URL is https://.
+const SECURE_COOKIE = (process.env.APP_URL ?? '').startsWith('https://')
 
 type SessionPayload = {
   userId: string
@@ -21,7 +25,7 @@ export async function createSession(payload: SessionPayload): Promise<string> {
   const cookieStore = await cookies()
   cookieStore.set(SESSION_COOKIE, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: SECURE_COOKIE,
     sameSite: 'lax',
     maxAge: 30 * 24 * 60 * 60,
     path: '/',
