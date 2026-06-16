@@ -43,6 +43,10 @@ services:
       - DATA_PROVIDER=mock
       - NODE_ENV=production
       - TZ=UTC
+      # Mercado Pago: vazio = checkout mock (paridade com prod; flip por .env local).
+      - MP_ACCESS_TOKEN=${MP_ACCESS_TOKEN:-}
+      - MP_PUBLIC_KEY=${MP_PUBLIC_KEY:-}
+      - MP_WEBHOOK_SECRET=${MP_WEBHOOK_SECRET:-}
     expose:
       - "3000"
     depends_on:
