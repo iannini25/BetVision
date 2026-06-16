@@ -12,6 +12,8 @@ async function getArgon2() {
 export async function authenticateUser(email: string, password: string) {
   const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1)
   if (!user || user.deletadoEm) return null
+  // Usuário cadastro-first ainda sem senha (passwordHash vazio): não pode logar até criá-la.
+  if (!user.passwordHash) return null
 
   const a2 = await getArgon2()
   const valid = await a2.verify(user.passwordHash, password)

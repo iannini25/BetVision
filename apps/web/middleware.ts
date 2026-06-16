@@ -2,7 +2,9 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { jwtVerify } from 'jose'
 
-const PUBLIC_PATHS = ['/login', '/esqueci-senha', '/redefinir-senha', '/verificar-email', '/landing', '/checkout', '/api/auth', '/api/webhooks']
+// /api/mp e /api/cadastro são públicos no middleware: cada rota confere o ator (sessão completa OU
+// cookie de checkout escopado) por conta própria — o fluxo cadastro-first ocorre antes de haver sessão.
+const PUBLIC_PATHS = ['/login', '/cadastro', '/esqueci-senha', '/redefinir-senha', '/criar-senha', '/verificar-email', '/landing', '/checkout', '/api/auth', '/api/webhooks', '/api/cadastro', '/api/mp']
 const secret = new TextEncoder().encode(process.env.AUTH_SESSION_SECRET || 'dev-secret-change-me-in-production')
 
 export async function middleware(request: NextRequest) {
