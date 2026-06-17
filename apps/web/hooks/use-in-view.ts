@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 type Options = {
   /** Disconnect after the first intersection (default true). */
@@ -15,15 +15,21 @@ type Options = {
  * IntersectionObserver-based in-view detector. Replaces window 'scroll' listeners
  * for "animate when it enters the viewport" — the single source of truth for the
  * in-app reveal/count-up motion.
+ *
+ * Usa um *callback ref* (não um RefObject): o nó é observado sempre que ele monta,
+ * inclusive quando aparece DEPOIS do primeiro render — caso de páginas que trocam
+ * um skeleton de carregamento pelo conteúdo real (ex.: /conta). Um RefObject ficaria
+ * preso ao `null` do primeiro render e nunca observaria o elemento de verdade.
  */
 export function useInView<T extends Element = HTMLDivElement>(options: Options = {}) {
   const { once = true, amount = 0.25, rootMargin = '0px' } = options
-  const ref = useRef<T | null>(null)
+  const [node, setNode] = useState<T | null>(null)
   const [inView, setInView] = useState(false)
 
+  const ref = useCallback((el: T | null) => setNode(el), [])
+
   useEffect(() => {
-    const el = ref.current
-    if (!el) return
+    if (!node) return
     const io = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
@@ -35,9 +41,9 @@ export function useInView<T extends Element = HTMLDivElement>(options: Options =
       },
       { threshold: amount, rootMargin },
     )
-    io.observe(el)
+    io.observe(node)
     return () => io.disconnect()
-  }, [once, amount, rootMargin])
+  }, [node, once, amount, rootMargin])
 
-  return [ref, inView] as const
+  return [ref, inView, node] as const
 }

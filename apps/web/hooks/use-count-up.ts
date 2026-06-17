@@ -41,12 +41,11 @@ export function useCountUp<T extends HTMLElement = HTMLElement>(
   } = options
 
   const reduced = useReducedMotion()
-  const [ref, inView] = useInView<T>({ once: !live })
+  const [ref, inView, el] = useInView<T>({ once: !live })
   const prev = useRef(0)
   const started = useRef(false)
 
   useEffect(() => {
-    const el = ref.current
     if (!el) return
 
     const format = (n: number) =>
@@ -85,7 +84,7 @@ export function useCountUp<T extends HTMLElement = HTMLElement>(
       anim.revert()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value, inView, reduced])
+  }, [value, inView, reduced, el])
 
   return ref
 }
