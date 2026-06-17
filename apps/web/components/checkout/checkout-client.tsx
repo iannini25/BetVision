@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import type { PaymentMethod } from '@betv/shared'
 import { useCheckout, type BrickFormData } from '@/lib/mp/use-checkout'
@@ -17,13 +17,28 @@ type TrialResult = { trialEndsAt: string; setPasswordToken?: string }
  * Funil de pagamento (sem regra de negócio — só orquestra):
  *   método (PIX × Cartão) → PIX | [cartão: pagar agora × 2 dias grátis] → form → estado.
  * `renew` (avulso vencido) pula o trial: cartão vai direto pra "pagar agora".
+ *
+ * `onPhaseChange(postFunnel)` avisa o shell quando saímos do funil de escolha para um
+ * estado terminal (pagamento criado ou teste iniciado), pra ele esconder o cabeçalho de
+ * coleta ("Falta um passo…") que contradiz "Pagamento confirmado/não aprovado".
  */
-export function CheckoutClient({ renew = false }: { renew?: boolean }) {
+export function CheckoutClient({
+  renew = false,
+  onPhaseChange,
+}: {
+  renew?: boolean
+  onPhaseChange?: (postFunnel: boolean) => void
+}) {
   const { mock, publicKey, name, loading, meReady, snapshot, paymentId, createPayment, reset } = useCheckout({ renew })
   const [step, setStep] = useState<Step>('method')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [trial, setTrial] = useState<TrialResult | null>(null)
+
+  const postFunnel = !!trial || !!paymentId
+  useEffect(() => {
+    onPhaseChange?.(postFunnel)
+  }, [postFunnel, onPhaseChange])
 
   async function pay(method: PaymentMethod, form: BrickFormData) {
     setSubmitting(true)

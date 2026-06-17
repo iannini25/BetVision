@@ -204,24 +204,24 @@ export default function ContaPage() {
               </div>
             </div>
             <button className="self-start bg-brand-gradient rounded-button px-5 py-2.5 text-sm font-semibold text-white transition-transform hover:-translate-y-px active:scale-95">
-              Salvar alteracoes
+              Salvar alterações
             </button>
           </div>
         </GlassCard>
 
         <GlassCard>
           <div className="flex flex-col gap-3">
-            <h3 className="text-xs font-bold tracking-widest text-text-muted uppercase">Historico de pagamentos</h3>
+            <h3 className="text-xs font-bold tracking-widest text-text-muted uppercase">Histórico de pagamentos</h3>
             {(!payments || payments.length === 0) ? (
               <p className="text-sm text-text-muted">Nenhum pagamento registrado.</p>
             ) : payments.map((p: any) => (
               <div key={p.id} className="flex items-center gap-3 py-2 border-b border-border-subtle">
-                <span className="font-mono text-[11px] text-text-muted">{new Date(p.criadoEm).toLocaleDateString('pt-BR')}</span>
-                <span className="text-sm text-text-primary">Passe 45 dias</span>
-                <span className="ml-auto font-mono text-sm font-semibold text-accent-green-text">R$ {p.amount?.toFixed(2)}</span>
-                <span className={`text-[10px] font-bold tracking-wider rounded-pill px-2 py-0.5 ${
-                  p.status === 'approved' ? 'text-accent-green-text bg-[rgba(34,197,94,0.10)]' : 'text-text-muted bg-bg-subtle'
-                }`}>{p.status === 'approved' ? 'PAGO' : p.status?.toUpperCase()}</span>
+                <span className="shrink-0 font-mono text-[11px] text-text-muted">{new Date(p.criadoEm).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</span>
+                <span className="min-w-0 flex-1 truncate text-sm text-text-primary">Passe 45 dias</span>
+                <span className="shrink-0 whitespace-nowrap font-mono text-sm font-semibold tabular-nums text-accent-green-text">{brl(p.amount ?? 0)}</span>
+                <span className={`shrink-0 rounded-pill px-2 py-0.5 text-[10px] font-bold tracking-wider ${pagamentoStatusClass(p.status)}`}>
+                  {pagamentoStatusLabel(p.status)}
+                </span>
               </div>
             ))}
           </div>
@@ -231,7 +231,7 @@ export default function ContaPage() {
           <div className="flex flex-col gap-3">
             <h3 className="text-xs font-bold tracking-widest text-accent-red uppercase">Zona de perigo</h3>
             <p className="text-sm text-text-secondary">
-              Ao excluir sua conta, seus dados serao removidos em ate 30 dias (LGPD).
+              Ao excluir sua conta, seus dados serão removidos em até 30 dias (LGPD).
             </p>
             <div className="flex gap-3">
               <button onClick={logout} className="border border-border rounded-button px-5 py-2.5 text-sm font-semibold text-text-secondary hover:border-border-hover">
@@ -251,6 +251,23 @@ export default function ContaPage() {
 const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 function fmtDate(d: string | null | undefined): string {
   return d ? new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' }) : '—'
+}
+
+const PAGAMENTO_STATUS: Record<string, string> = {
+  approved: 'Pago',
+  pending: 'Pendente',
+  in_process: 'Em análise',
+  rejected: 'Recusado',
+  cancelled: 'Cancelado',
+  refunded: 'Estornado',
+}
+function pagamentoStatusLabel(status: string): string {
+  return PAGAMENTO_STATUS[status] ?? status
+}
+function pagamentoStatusClass(status: string): string {
+  if (status === 'approved') return 'text-accent-green-text bg-[rgba(34,197,94,0.10)]'
+  if (status === 'rejected' || status === 'cancelled') return 'text-accent-red bg-[rgba(251,77,109,0.10)]'
+  return 'text-text-muted bg-bg-subtle'
 }
 
 function UsageStat({ label, value }: { label: string; value?: number }) {

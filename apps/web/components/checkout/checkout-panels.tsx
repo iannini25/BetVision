@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic'
 import { useState } from 'react'
-import { Wallet2, Flash, Gift, Calendar, ShieldTick } from 'iconsax-reactjs'
+import { Wallet2, Flash, Gift, Calendar, Refresh, ShieldTick } from 'iconsax-reactjs'
 import {
   SUBSCRIPTION_PRICE_BRL,
   SUBSCRIPTION_DAYS,
@@ -18,7 +18,7 @@ import { BackButton } from './checkout-method'
 import type { BrickFormData } from '@/lib/mp/use-checkout'
 
 const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-const fmtFull = (d: Date) => d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
+const fmtShort = (d: Date) => `${d.getDate()} ${d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')}`
 
 const BrickCheckout = dynamic(() => import('./brick-checkout'), {
   ssr: false,
@@ -153,15 +153,27 @@ export function TrialPanel({
   const [cpf, setCpf] = useState('')
   const [cpfError, setCpfError] = useState('')
   const [consent, setConsent] = useState(false)
+  const [consentError, setConsentError] = useState(false)
 
   const firstCharge = new Date(Date.now() + TRIAL_DAYS * 86_400_000)
 
+  function toggleConsent(checked: boolean) {
+    setConsent(checked)
+    if (checked) setConsentError(false)
+  }
+
   function start() {
     setCpfError('')
+    let ok = true
     if (mock && !isValidCpf(cpf)) {
       setCpfError('CPF inválido')
-      return
+      ok = false
     }
+    if (!consent) {
+      setConsentError(true)
+      ok = false
+    }
+    if (!ok) return
     // Mock: token fake; Real: o token vem do CardPayment Brick (não implementado neste mock).
     onSubscribe('mock-card-token')
   }
@@ -170,21 +182,39 @@ export function TrialPanel({
     <div className="flex flex-col gap-4">
       <BackButton onClick={onBack} />
 
-      {/* Transparência GRITANTE — não escondida em letra pequena */}
-      <div className="flex flex-col gap-2 rounded-card border border-brand-violet/40 bg-brand-violet/[0.07] p-4">
+      {/* Transparência GRITANTE — cronologia escaneável: o olho bate na cobrança em 1 segundo */}
+      <div className="flex flex-col gap-3 rounded-card border border-brand-violet/50 bg-brand-violet/[0.07] p-4">
         <p className="flex items-center gap-2 font-display text-lg font-bold text-text-primary">
-          <Gift size={20} variant="Bold" color="currentColor" aria-hidden="true" className="text-brand-soft" /> 2 dias grátis, sem cobrança agora
+          <Gift size={20} variant="Bold" color="currentColor" aria-hidden="true" className="text-accent-green-text" />
+          2 dias grátis, sem cobrança agora
         </p>
-        <p className="text-sm text-text-secondary">
-          <strong className="text-text-primary">Você NÃO será cobrado hoje.</strong> No dia{' '}
-          <strong className="text-text-primary">{fmtFull(firstCharge)}</strong>, {brl(RECURRING_AMOUNT_BRL)} serão cobrados no seu
-          cartão automaticamente, e depois todo mês. <strong className="text-text-primary">Você pode cancelar quando quiser</strong>,
-          em 1 clique, na sua conta.
-        </p>
-        <p className="flex items-center gap-1.5 text-xs text-text-muted">
-          <Calendar size={14} variant="Linear" color="currentColor" aria-hidden="true" />
-          Primeira cobrança: {fmtFull(firstCharge)} · {brl(RECURRING_AMOUNT_BRL)}/mês
-        </p>
+        <ol className="flex flex-col gap-2.5">
+          <TimelineRow
+            icon={<Gift size={18} variant="Bold" color="currentColor" aria-hidden="true" />}
+            iconClass="bg-accent-green/15 text-accent-green-text"
+            label="Hoje"
+            sub="Você não paga nada"
+            value="R$ 0,00"
+            valueClass="text-accent-green-text"
+          />
+          <TimelineRow
+            icon={<Calendar size={18} variant="Bold" color="currentColor" aria-hidden="true" />}
+            iconClass="bg-brand-violet/20 text-brand-soft"
+            label={fmtShort(firstCharge)}
+            sub="1ª cobrança no seu cartão"
+            value={brl(RECURRING_AMOUNT_BRL)}
+            valueClass="text-text-primary"
+            strong
+          />
+          <TimelineRow
+            icon={<Refresh size={18} variant="Bold" color="currentColor" aria-hidden="true" />}
+            iconClass="bg-white/[0.06] text-text-secondary"
+            label="Depois"
+            sub="Todo mês · cancele quando quiser"
+            value={`${brl(RECURRING_AMOUNT_BRL)}/mês`}
+            valueClass="text-text-secondary"
+          />
+        </ol>
       </div>
 
       {mock ? (
@@ -195,16 +225,34 @@ export function TrialPanel({
         </p>
       )}
 
-      <label className="flex items-start gap-2.5 text-sm text-text-secondary cursor-pointer">
-        <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-0.5 h-4 w-4 accent-brand-violet" />
-        <span>
-          Li e concordo: após os {TRIAL_DAYS} dias grátis, <strong className="text-text-primary">{brl(RECURRING_AMOUNT_BRL)} serão cobrados mensalmente</strong> no meu cartão até eu cancelar.
-        </span>
-      </label>
+      <div className="flex flex-col gap-1.5">
+        <label
+          className={`flex items-start gap-3 rounded-card border p-3 text-sm text-text-secondary cursor-pointer transition-colors ${
+            consentError ? 'border-accent-red bg-accent-red/[0.06]' : 'border-border-input bg-white/[0.02] hover:border-border-hover'
+          }`}
+        >
+          <input
+            type="checkbox"
+            checked={consent}
+            onChange={(e) => toggleConsent(e.target.checked)}
+            aria-invalid={consentError}
+            required
+            className={`mt-0.5 h-6 w-6 shrink-0 rounded-md border-2 accent-brand-violet ${consentError ? 'border-accent-red' : 'border-border-input'}`}
+          />
+          <span>
+            Li e concordo: após os {TRIAL_DAYS} dias grátis, <strong className="text-text-primary">{brl(RECURRING_AMOUNT_BRL)} serão cobrados todo mês</strong> no meu cartão até eu cancelar.
+          </span>
+        </label>
+        {consentError && (
+          <p role="alert" className="text-sm text-accent-red">
+            Você precisa concordar para começar o teste.
+          </p>
+        )}
+      </div>
 
       {error && <p role="alert" className="text-sm text-accent-red">{error}</p>}
 
-      <Button onClick={start} loading={submitting} disabled={!consent} fullWidth>
+      <Button onClick={start} loading={submitting} fullWidth>
         Começar meus {TRIAL_DAYS} dias grátis
       </Button>
       <p className="flex items-center justify-center gap-1.5 text-[11px] text-text-muted">
@@ -212,5 +260,37 @@ export function TrialPanel({
         Sem cobrança hoje · cancele em 1 clique a qualquer momento
       </p>
     </div>
+  )
+}
+
+/** Linha da cronologia de cobrança (ícone · momento · valor à direita) — valor escaneável. */
+function TimelineRow({
+  icon,
+  iconClass,
+  label,
+  sub,
+  value,
+  valueClass,
+  strong = false,
+}: {
+  icon: React.ReactNode
+  iconClass: string
+  label: string
+  sub: string
+  value: string
+  valueClass: string
+  strong?: boolean
+}) {
+  return (
+    <li className="flex items-center gap-3">
+      <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-input ${iconClass}`}>{icon}</span>
+      <div className="flex min-w-0 flex-col">
+        <span className="text-sm font-semibold text-text-primary">{label}</span>
+        <span className="text-xs text-text-muted">{sub}</span>
+      </div>
+      <span className={`ml-auto shrink-0 font-display font-extrabold tabular-nums ${strong ? 'text-lg' : 'text-base'} ${valueClass}`}>
+        {value}
+      </span>
+    </li>
   )
 }

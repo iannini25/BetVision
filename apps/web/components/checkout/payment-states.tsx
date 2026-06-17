@@ -3,7 +3,7 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { animate, spring } from 'animejs'
-import { TickCircle, CloseCircle, InfoCircle, Copy, Wallet2, Refresh } from 'iconsax-reactjs'
+import { TickCircle, InfoCircle, Copy, Wallet2, Refresh } from 'iconsax-reactjs'
 import { SUBSCRIPTION_DAYS } from '@betv/shared'
 import { Button } from '@/components/ui/button'
 import { prefersReducedMotion } from '@/lib/motion'
@@ -154,9 +154,14 @@ export function PaymentSuccess({ name, renew }: { name: string; renew: boolean }
           <Button fullWidth>Voltar para o BetV</Button>
         </Link>
       ) : (
-        <div className="flex flex-col items-center gap-2">
-          <p className="text-sm text-text-secondary">Enviamos um e-mail para você criar sua senha e finalizar a conta.</p>
-          <Link href="/login" className="text-brand-violet hover:underline text-sm">
+        <div className="flex w-full max-w-xs flex-col items-center gap-3">
+          <p className="text-sm text-text-secondary">
+            Enviamos um e-mail para você <strong className="text-text-primary">criar sua senha</strong> e finalizar a conta.
+          </p>
+          <Link href="/hoje" className="w-full">
+            <Button fullWidth>Começar a usar</Button>
+          </Link>
+          <Link href="/login" className="text-sm text-text-muted underline-offset-4 hover:text-text-primary hover:underline">
             Já criei minha senha — entrar
           </Link>
         </div>
@@ -210,12 +215,14 @@ export function TrialActive({
 export function PaymentRejected({ onRetry }: { onRetry: () => void }) {
   return (
     <div className="flex flex-col items-center gap-4 text-center" role="alert">
-      <div className="text-accent-red">
-        <CloseCircle size={48} variant="Bold" color="currentColor" aria-hidden="true" />
+      <div className="grid h-14 w-14 place-items-center rounded-full bg-accent-yellow/12 text-accent-yellow">
+        <InfoCircle size={32} variant="Bulk" color="currentColor" aria-hidden="true" />
       </div>
-      <h2 className="font-display text-xl font-bold">Pagamento não aprovado</h2>
-      <p className="text-text-secondary">O pagamento foi recusado. Confira os dados e tente novamente.</p>
-      <Button onClick={onRetry} variant="secondary">
+      <h2 className="font-display text-xl font-bold">Não foi dessa vez</h2>
+      <p className="max-w-sm text-text-secondary">
+        O pagamento não foi aprovado — às vezes é só um detalhe do cartão ou do banco. Você pode tentar de novo, usar outro cartão ou pagar via PIX.
+      </p>
+      <Button onClick={onRetry} className="mt-1">
         Tentar de novo
       </Button>
     </div>
