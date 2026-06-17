@@ -12,6 +12,14 @@
 #
 # Requires Docker Compose v2.24+ for the !reset / !override merge directives.
 services:
+  # HTTPS em produção: abre 443 e diz ao Caddy quais domínios servir (gera cert Let's Encrypt).
+  # O 80 do base continua aberto (necessário para o desafio ACME e o redirect http->https).
+  caddy:
+    ports:
+      - "443:443"
+    environment:
+      - CADDY_SITE=${CADDY_SITE:-betv.online www.betv.online}
+
   postgres:
     ports: !reset []
 
@@ -30,7 +38,7 @@ services:
 
   web:
     environment:
-      - APP_URL=${APP_URL:-http://localhost}
+      - APP_URL=${APP_URL:-https://betv.online}
       - AUTH_SESSION_SECRET=${AUTH_SESSION_SECRET:?set AUTH_SESSION_SECRET in the VPS .env}
       - DATA_PROVIDER=${DATA_PROVIDER:-mock}
       - SPORTMONKS_TOKEN=${SPORTMONKS_TOKEN:-}
@@ -53,7 +61,7 @@ services:
 
   agent:
     environment:
-      - APP_URL=${APP_URL:-http://localhost}
+      - APP_URL=${APP_URL:-https://betv.online}
       - DATA_PROVIDER=${DATA_PROVIDER:-mock}
       - SPORTMONKS_TOKEN=${SPORTMONKS_TOKEN:-}
       - WC_SEASON_ID=${WC_SEASON_ID:-26618}

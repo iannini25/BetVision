@@ -1,8 +1,27 @@
-{
-	auto_https off
-}
+# Caddy reverse proxy — um arquivo, dois modos (controlado por $CADDY_SITE):
+#  - LOCAL (sem CADDY_SITE):  serve HTTP puro em :80 (mock/dev), sem ACME.
+#  - PROD  (CADDY_SITE="betv.online www.betv.online"): HTTPS automático via Let's Encrypt,
+#    redireciona http->https e www->apex. CADDY_SITE vem do overlay docker-compose.prod.yml.
+{$CADDY_SITE::80} {
+	encode zstd gzip
 
-:80 {
-	reverse_proxy /ws* realtime:4000
+	# www -> apex (canônico). Só dispara em prod, onde o host www.betv.online existe.
+	@www host www.betv.online
+	redir @www https://betv.online{uri} permanent
+
+	# WebSocket do realtime — o Caddy faz o upgrade (wss) transparente.
+	@ws path /ws*
+	reverse_proxy @ws realtime:4000
+
+	# App Next.js.
 	reverse_proxy web:3000
+
+	header {
+		# HSTS é ignorado sob HTTP (local) e ativo sob HTTPS (prod).
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		X-Frame-Options "SAMEORIGIN"
+		-Server
+	}
 }
