@@ -33,10 +33,22 @@ export const users = pgTable('users', {
 export const subscriptions = pgTable('subscriptions', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  // trial | active | cancelled | past_due | expired (varchar, sem pg-enum)
   status: varchar('status', { length: 20 }).notNull().default('active'),
+  // avulso_pix | avulso_cartao | recorrente_cartao
+  type: varchar('type', { length: 20 }).notNull().default('avulso_pix'),
   inicioEm: timestamp('inicio_em', { withTimezone: true }).defaultNow().notNull(),
   expiraEm: timestamp('expira_em', { withTimezone: true }).notNull(),
-  // Quando o e-mail de "expira em X dias" foi enviado neste ciclo (idempotência do cron).
+  // --- Assinatura recorrente (cartão) ---
+  mpPreapprovalId: varchar('mp_preapproval_id', { length: 255 }),
+  trialEndsAt: timestamp('trial_ends_at', { withTimezone: true }),
+  nextChargeAt: timestamp('next_charge_at', { withTimezone: true }),
+  consentAt: timestamp('consent_at', { withTimezone: true }),
+  consentVersion: varchar('consent_version', { length: 40 }),
+  cancelledAt: timestamp('cancelled_at', { withTimezone: true }),
+  // Aviso pré-cobrança do trial já enviado neste ciclo (idempotência).
+  preChargeWarnedAt: timestamp('pre_charge_warned_at', { withTimezone: true }),
+  // Quando o e-mail de "expira em X dias" foi enviado neste ciclo (idempotência do cron avulso).
   // Zerado a cada renovação para reativar o aviso no próximo ciclo.
   expiryWarnedAt: timestamp('expiry_warned_at', { withTimezone: true }),
   criadoEm: timestamp('criado_em', { withTimezone: true }).defaultNow().notNull(),

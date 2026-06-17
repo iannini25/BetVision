@@ -44,12 +44,26 @@ export const EXPIRATION_WARNING_DAYS = 5
 /** O passe só pode ser renovado a partir de quando faltam estes dias para expirar. */
 export const RENEWAL_UNLOCK_DAYS = 2
 
+// --- Assinatura recorrente (cartão com trial) ---
+/** Dias de teste grátis antes da 1ª cobrança (free_trial nativo do preapproval). */
+export const TRIAL_DAYS = 2
 /**
- * Taxas de recebimento do Mercado Pago, repassadas ao cliente (total = valor + taxa).
- * Percentuais sobre o valor, exceto boleto (valor fixo em R$). Única fonte da verdade —
- * o painel de taxa do checkout e o cálculo do total no backend leem daqui.
- * `wallet` (saldo MP) não tem taxa publicada no briefing; usamos a de crédito por
- * conservadorismo (nunca cobrar a menos). Confirmar quando a chave real entrar.
+ * Ciclo da cobrança recorrente, em dias. ESCOLHA: 30 (mensal) — mais coerente com "assinatura"
+ * (decisão de 2026-06-16). Trocar para `SUBSCRIPTION_DAYS` (45) volta à economia do passe avulso.
+ */
+export const RECURRING_FREQUENCY_DAYS = 30
+/** Valor de cada cobrança recorrente (mesmo preço fixo limpo do avulso). */
+export const RECURRING_AMOUNT_BRL = SUBSCRIPTION_PRICE_BRL
+/** Estados de assinatura que liberam acesso ao app (com expiraEm no futuro). */
+export const ACCESS_STATUSES = ['trial', 'active', 'cancelled'] as const
+/** Versão do texto de consentimento aceito no trial (defesa em disputa). */
+export const CONSENT_VERSION = 'trial-v1-2026-06'
+
+/**
+ * Custo INTERNO de recebimento do Mercado Pago por método — a BetV ABSORVE (NÃO repassa).
+ * O preço cobrado é SEMPRE R$ 14,90 limpo, em todos os métodos. `MP_FEES`/`calcFee` servem só
+ * para reconciliação/relatórios (quanto a BetV recebe líquido), nunca somados ao que o cliente paga.
+ * `wallet` (saldo MP) sem taxa publicada → usa a de crédito por conservadorismo.
  */
 export const MP_FEES = {
   pix: 0.0099,

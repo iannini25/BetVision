@@ -87,3 +87,57 @@ export async function sendExpirationWarningEmail(to: string, name: string, daysL
   if (isMock) return log('expiration-warning', to, subject)
   await resend!.emails.send({ from: fromAddress, to, subject, html })
 }
+
+// --- Assinatura recorrente (cartão com trial) ---
+
+const fmtDate = (d: Date) => d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })
+
+/** Anti-chargeback: aviso na manhã do 2º dia, ANTES da 1ª cobrança. */
+export async function sendTrialPreChargeEmail(to: string, name: string, chargeDate: Date, amount: number) {
+  const subject = 'Seu teste grátis termina amanhã — BetV'
+  const html = `
+    <h1>Olá, ${name}!</h1>
+    <p>Seu teste grátis de 2 dias termina amanhã e <strong>R$ ${amount.toFixed(2)}</strong> serão cobrados no seu cartão em <strong>${fmtDate(chargeDate)}</strong>.</p>
+    <p>Se não quiser continuar, é só cancelar — sem pegadinha:</p>
+    <a href="${process.env.APP_URL}/conta">Gerenciar / cancelar assinatura</a>
+    <p style="color:#666;font-size:12px">Conteúdo informativo, não é recomendação de aposta. 18+.</p>
+  `
+  if (isMock) return log('trial-pre-charge', to, subject)
+  await resend!.emails.send({ from: fromAddress, to, subject, html })
+}
+
+export async function sendRecurringChargeSuccessEmail(to: string, name: string, amount: number, nextChargeAt: Date) {
+  const subject = 'Pagamento da assinatura confirmado — BetV'
+  const html = `
+    <h1>Tudo certo, ${name}!</h1>
+    <p>Recebemos <strong>R$ ${amount.toFixed(2)}</strong> da sua assinatura BetV. Próxima cobrança em <strong>${fmtDate(nextChargeAt)}</strong>.</p>
+    <a href="${process.env.APP_URL}/hoje">Continuar no BetV</a>
+    <p style="color:#666;font-size:12px">Você pode cancelar quando quiser em ${process.env.APP_URL}/conta. 18+.</p>
+  `
+  if (isMock) return log('recurring-charge-success', to, subject)
+  await resend!.emails.send({ from: fromAddress, to, subject, html })
+}
+
+export async function sendRecurringChargeFailedEmail(to: string, name: string) {
+  const subject = 'Não conseguimos cobrar sua assinatura — BetV'
+  const html = `
+    <h1>Olá, ${name}</h1>
+    <p>A cobrança da sua assinatura BetV não foi aprovada. O Mercado Pago vai tentar de novo, mas vale conferir os dados do cartão para não perder o acesso.</p>
+    <a href="${process.env.APP_URL}/conta">Atualizar pagamento</a>
+    <p style="color:#666;font-size:12px">18+.</p>
+  `
+  if (isMock) return log('recurring-charge-failed', to, subject)
+  await resend!.emails.send({ from: fromAddress, to, subject, html })
+}
+
+export async function sendSubscriptionCancelledEmail(to: string, name: string, accessUntil: Date) {
+  const subject = 'Assinatura cancelada — BetV'
+  const html = `
+    <h1>Cancelamento confirmado, ${name}.</h1>
+    <p>Sua assinatura foi cancelada e não haverá novas cobranças. Você mantém o acesso até <strong>${fmtDate(accessUntil)}</strong>.</p>
+    <a href="${process.env.APP_URL}/conta">Voltar a assinar quando quiser</a>
+    <p style="color:#666;font-size:12px">18+.</p>
+  `
+  if (isMock) return log('subscription-cancelled', to, subject)
+  await resend!.emails.send({ from: fromAddress, to, subject, html })
+}

@@ -127,4 +127,88 @@ describe('MockMercadoPagoClient', () => {
     const out = await new MockMercadoPagoClient().createPayment({ ...pixReq, method: 'credit' })
     expect(out.pixQrCode).toBeUndefined()
   })
+
+  it('preapproval mock: authorized + nextPaymentDate ~ trial; cancel → cancelled', async () => {
+    const mock = new MockMercadoPagoClient()
+    const pre = await mock.createPreapproval({
+      externalReference: 'sub-1',
+      cardToken: 'tok',
+      payerEmail: 'a@b.com',
+      amount: 14.9,
+      frequencyDays: 30,
+      trialDays: 2,
+      reason: 'BetV',
+    })
+    expect(pre.id).toBe('mock-pre-sub-1')
+    expect(pre.status).toBe('authorized')
+    expect(pre.nextPaymentDate).toBeTruthy()
+    expect((await mock.cancelPreapproval('mock-pre-sub-1')).status).toBe('cancelled')
+  })
+})
+
+const preReq = {
+  externalReference: 'sub-1',
+  cardToken: 'card-tok',
+  payerEmail: 'a@b.com',
+  amount: 14.9,
+  frequencyDays: 30,
+  trialDays: 2,
+  reason: 'BetV — Assinatura',
+}
+
+describe('RealMercadoPagoClient — preapproval', () => {
+  it('createPreapproval envia free_trial nativo + status authorized + idempotency key', async () => {
+    let seenUrl = ''
+    let seenInit: RequestInit = {}
+    const client = new RealMercadoPagoClient({
+      accessToken: 'secret',
+      sleep: noSleep,
+      fetchFn: (async (url: string, init: RequestInit) => {
+        seenUrl = url
+        seenInit = init
+        return res(201, { id: 'pre-9', status: 'authorized', next_payment_date: '2026-06-18T10:00:00Z' })
+      }) as unknown as typeof fetch,
+    })
+
+    const out = await client.createPreapproval(preReq)
+
+    expect(seenUrl).toBe('https://api.mercadopago.com/preapproval')
+    expect((seenInit.headers as Record<string, string>)['X-Idempotency-Key']).toBe('sub-1')
+    const body = JSON.parse(seenInit.body as string)
+    expect(body.status).toBe('authorized')
+    expect(body.card_token_id).toBe('card-tok')
+    expect(body.auto_recurring.free_trial).toEqual({ frequency: 2, frequency_type: 'days' })
+    expect(body.auto_recurring.frequency).toBe(30)
+    expect(body.auto_recurring.transaction_amount).toBe(14.9)
+    expect(out).toEqual({ id: 'pre-9', status: 'authorized', nextPaymentDate: '2026-06-18T10:00:00Z' })
+  })
+
+  it('cancelPreapproval usa PUT com status cancelled', async () => {
+    let seenMethod = ''
+    let seenBody = ''
+    const client = new RealMercadoPagoClient({
+      accessToken: 't',
+      sleep: noSleep,
+      fetchFn: (async (_url: string, init: RequestInit) => {
+        seenMethod = init.method as string
+        seenBody = init.body as string
+        return res(200, { id: 'pre-9', status: 'cancelled' })
+      }) as unknown as typeof fetch,
+    })
+    const out = await client.cancelPreapproval('pre-9')
+    expect(seenMethod).toBe('PUT')
+    expect(JSON.parse(seenBody).status).toBe('cancelled')
+    expect(out.status).toBe('cancelled')
+  })
+
+  it('getAuthorizedPayment normaliza preapprovalId + paymentStatus', async () => {
+    const client = new RealMercadoPagoClient({
+      accessToken: 't',
+      sleep: noSleep,
+      fetchFn: (async () =>
+        res(200, { id: 'ap-1', preapproval_id: 'pre-9', status: 'processed', payment: { status: 'approved' }, transaction_amount: 14.9 })) as unknown as typeof fetch,
+    })
+    const out = await client.getAuthorizedPayment('ap-1')
+    expect(out).toMatchObject({ id: 'ap-1', preapprovalId: 'pre-9', status: 'processed', paymentStatus: 'approved', amount: 14.9 })
+  })
 })

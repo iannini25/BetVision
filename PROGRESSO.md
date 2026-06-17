@@ -101,3 +101,19 @@ Tudo completo. Motor com 14 testes verdes. MockProvider com Copa 2026. 3 agentes
 - **Resiliência** — `use-realtime` (hook pré-existente) sem guarda contra sockets sobrepostos num flapping; recomendado guard de reconexão.
 - **Lint** — repo sem config de ESLint (script `lint` aspiracional). Gate estático atual = `tsc` strict (noUnusedLocals/Params/noFallthrough), limpo. Recomendado adicionar `eslint-config-next` + `@typescript-eslint`.
 - **Conteúdo** — `/jogo/[id]` (Match Center) renderiza mock; falta ligar abas às APIs reais (fora dos 4 pendentes).
+
+## Fase 14 — Pagamento (jornada completa + reestruturação) — DECISÕES ATUAIS
+> Esta seção é a fonte da verdade do pagamento. Onde algo acima (Fase 9/10, "checkout stub") conflitar, ESTA vale.
+
+**Já em produção (commits até `6607d22`):**
+- Jornada: cadastro → checkout (Payment Brick real × mock) → confirmação automática (polling fonte da verdade + realtime por-pagamento com token assinado) → e-mail com link → `/criar-senha` (auto-login) → `/conta` → `/renovar`.
+- **Taxa ABSORVIDA, NÃO repassada:** preço **R$ 14,90 fixo e limpo em TODOS os métodos**, PIX em destaque. SEM painel "+ taxa = total". `MP_FEES`/`calcFee` = só custo interno; Brick=backend=R$14,90.
+- Segurança: external_reference+getPayment (race webhook-antes-do-create); cookie `betv-checkout` escopado; x-signature timingSafeEqual fail-closed; idempotência transacional FOR UPDATE; rate-limit de pendentes; `server-only` nos módulos MP; cron de aviso de expiração (5 dias). Mock intacto sem chaves; `ALLOW_MOCK_PAYMENTS` trava o mock em prod.
+
+**Rodada em construção (reestruturação):**
+- **Bifurcação por método:** PIX = sempre avulso R$14,90 à vista (sem trial/recorrência; vencido→renovação; arrependimento 7 dias). Cartão = escolha **"Pagar agora"** (avulso) OU **"2 dias grátis"** (recorrente via **preapproval** com `free_trial` nativo de 2 dias; 1ª cobrança no 3º dia; cancelável).
+- **Cadência da recorrência (escolha 2026-06-16):** **`RECURRING_FREQUENCY_DAYS=30` (mensal)** — mais coerente com "assinatura". Constante em `packages/shared/src/constants.ts`; trocar para `SUBSCRIPTION_DAYS` (45) volta à economia do passe avulso. Valor por ciclo = R$14,90 (mesmo preço limpo).
+- **Estados de assinatura:** trial/active/cancelled/past_due/expired; type avulso_pix/avulso_cartao/recorrente_cartao; `mpPreapprovalId, trialEndsAt, consentAt, nextChargeAt, cancelledAt`.
+- **Webhooks de assinatura** (`subscription_preapproval` + `subscription_authorized_payment`) além do avulso.
+- **Anti-chargeback:** aviso pré-cobrança (manhã do 2º dia); cancelamento 1-clique; consentimento gravado (data/hora); tudo explícito.
+- **Domínio:** `betv.online` + `www` com HTTPS (Caddy/Let's Encrypt); `APP_URL=https://betv.online`; webhook `https://betv.online/api/webhooks/mercadopago`.

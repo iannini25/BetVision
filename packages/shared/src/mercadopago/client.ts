@@ -51,11 +51,43 @@ export type MpCustomerInput = {
 
 export type MpSavedCard = { id: string; lastFour: string; brand: string }
 
+// --- Assinatura recorrente (preapproval) ---
+export type MpPreapprovalRequest = {
+  /** UUID da nossa linha de assinatura: vira external_reference + X-Idempotency-Key. */
+  externalReference: string
+  cardToken: string
+  payerEmail: string
+  amount: number
+  frequencyDays: number
+  trialDays: number
+  reason: string
+  backUrl?: string
+}
+
+export type MpPreapprovalResponse = {
+  id: string
+  status: string // authorized | paused | cancelled | pending
+  nextPaymentDate?: string | null
+}
+
+export type MpAuthorizedPayment = {
+  id: string
+  preapprovalId: string
+  status: string // processed | scheduled | recycling
+  paymentStatus?: string // approved | rejected | ...
+  debitDate?: string | null
+  amount?: number
+}
+
 export interface MercadoPagoClient {
   createPayment(req: MpPaymentRequest): Promise<MpPaymentResponse>
   getPayment(id: string): Promise<MpPaymentResponse>
   createCustomer(input: MpCustomerInput): Promise<{ id: string }>
   saveCard(customerId: string, cardToken: string): Promise<MpSavedCard>
+  createPreapproval(req: MpPreapprovalRequest): Promise<MpPreapprovalResponse>
+  getPreapproval(id: string): Promise<MpPreapprovalResponse>
+  cancelPreapproval(id: string): Promise<MpPreapprovalResponse>
+  getAuthorizedPayment(id: string): Promise<MpAuthorizedPayment>
 }
 
 // ---------------------------------------------------------------------------
@@ -132,6 +164,37 @@ export class RealMercadoPagoClient implements MercadoPagoClient {
     return { id: String(raw.id), lastFour: raw.last_four_digits, brand: raw.payment_method?.id ?? 'card' }
   }
 
+  async createPreapproval(req: MpPreapprovalRequest): Promise<MpPreapprovalResponse> {
+    const body: Record<string, unknown> = {
+      reason: req.reason,
+      external_reference: req.externalReference,
+      payer_email: req.payerEmail,
+      card_token_id: req.cardToken,
+      auto_recurring: {
+        frequency: req.frequencyDays,
+        frequency_type: 'days',
+        transaction_amount: req.amount,
+        currency_id: 'BRL',
+        free_trial: { frequency: req.trialDays, frequency_type: 'days' },
+      },
+      ...(req.backUrl ? { back_url: req.backUrl } : {}),
+      status: 'authorized',
+    }
+    return normalizePreapproval(await this.send('POST', '/preapproval', body, req.externalReference))
+  }
+
+  async getPreapproval(id: string): Promise<MpPreapprovalResponse> {
+    return normalizePreapproval(await this.send('GET', `/preapproval/${id}`))
+  }
+
+  async cancelPreapproval(id: string): Promise<MpPreapprovalResponse> {
+    return normalizePreapproval(await this.send('PUT', `/preapproval/${id}`, { status: 'cancelled' }))
+  }
+
+  async getAuthorizedPayment(id: string): Promise<MpAuthorizedPayment> {
+    return normalizeAuthorizedPayment(await this.send('GET', `/authorized_payments/${id}`))
+  }
+
   private buildPaymentBody(req: MpPaymentRequest): Record<string, unknown> {
     const base: Record<string, unknown> = {
       transaction_amount: req.amount,
@@ -160,7 +223,7 @@ export class RealMercadoPagoClient implements MercadoPagoClient {
   }
 
   private async send(
-    method: 'GET' | 'POST',
+    method: 'GET' | 'POST' | 'PUT',
     path: string,
     body?: Record<string, unknown>,
     idempotencyKey?: string
@@ -190,7 +253,7 @@ export class RealMercadoPagoClient implements MercadoPagoClient {
   }
 
   private async fetchWithTimeout(
-    method: 'GET' | 'POST',
+    method: 'GET' | 'POST' | 'PUT',
     path: string,
     body?: Record<string, unknown>,
     idempotencyKey?: string
@@ -242,6 +305,30 @@ function normalizePayment(raw: unknown): MpPaymentResponse {
   }
 }
 
+function normalizePreapproval(raw: unknown): MpPreapprovalResponse {
+  const p = raw as { id: string | number; status: string; next_payment_date?: string | null }
+  return { id: String(p.id), status: p.status, nextPaymentDate: p.next_payment_date ?? null }
+}
+
+function normalizeAuthorizedPayment(raw: unknown): MpAuthorizedPayment {
+  const p = raw as {
+    id: string | number
+    preapproval_id?: string
+    status: string
+    payment?: { status?: string }
+    debit_date?: string | null
+    transaction_amount?: number
+  }
+  return {
+    id: String(p.id),
+    preapprovalId: String(p.preapproval_id ?? ''),
+    status: p.status,
+    paymentStatus: p.payment?.status,
+    debitDate: p.debit_date ?? null,
+    amount: p.transaction_amount,
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Cliente mock (sem chave) — determinístico, exercita o mesmo fluxo
 // ---------------------------------------------------------------------------
@@ -274,6 +361,26 @@ export class MockMercadoPagoClient implements MercadoPagoClient {
 
   async saveCard(customerId: string, _cardToken: string): Promise<MpSavedCard> {
     return { id: `mock-card-${customerId}`, lastFour: '4242', brand: 'visa' }
+  }
+
+  async createPreapproval(req: MpPreapprovalRequest): Promise<MpPreapprovalResponse> {
+    return {
+      id: `mock-pre-${req.externalReference}`,
+      status: 'authorized',
+      nextPaymentDate: new Date(Date.now() + req.trialDays * 86_400_000).toISOString(),
+    }
+  }
+
+  async getPreapproval(id: string): Promise<MpPreapprovalResponse> {
+    return { id, status: 'authorized', nextPaymentDate: null }
+  }
+
+  async cancelPreapproval(id: string): Promise<MpPreapprovalResponse> {
+    return { id, status: 'cancelled', nextPaymentDate: null }
+  }
+
+  async getAuthorizedPayment(id: string): Promise<MpAuthorizedPayment> {
+    return { id, preapprovalId: id, status: 'processed', paymentStatus: 'approved', debitDate: new Date().toISOString(), amount: 0 }
   }
 }
 
