@@ -47,6 +47,8 @@ export const RENEWAL_UNLOCK_DAYS = 2
 // --- Assinatura recorrente (cartão com trial) ---
 /** Dias de teste grátis antes da 1ª cobrança (free_trial nativo do preapproval). */
 export const TRIAL_DAYS = 2
+/** Janela do aviso pré-cobrança: avisa quando a 1ª cobrança (fim do trial) cai dentro destes dias. */
+export const PRE_CHARGE_WARN_DAYS = 1
 /**
  * Ciclo da cobrança recorrente, em dias. ESCOLHA: 30 (mensal) — mais coerente com "assinatura"
  * (decisão de 2026-06-16). Trocar para `SUBSCRIPTION_DAYS` (45) volta à economia do passe avulso.
