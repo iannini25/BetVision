@@ -22,5 +22,15 @@ export async function GET() {
     daysRemaining: subscription
       ? Math.max(0, Math.ceil((new Date(subscription.expiraEm).getTime() - Date.now()) / (24 * 60 * 60 * 1000)))
       : 0,
+    // Para a /conta distinguir recorrente (próxima cobrança + cancelar) de avulso (renovar).
+    subscription: subscription
+      ? {
+          type: subscription.type,
+          status: subscription.status,
+          nextChargeAt: subscription.nextChargeAt ?? null,
+          trialEndsAt: subscription.trialEndsAt ?? null,
+          cancelledAt: subscription.cancelledAt ?? null,
+        }
+      : null,
   })
 }

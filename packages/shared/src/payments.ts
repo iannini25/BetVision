@@ -1,4 +1,4 @@
-import { MP_FEES } from './constants'
+import { MP_FEES, ACCESS_STATUSES } from './constants'
 import { round2 } from './num'
 
 /** Métodos de pagamento aceitos no checkout (Payment Brick cobre todos num componente). */
@@ -39,6 +39,19 @@ export function daysUntil(date: Date, now: Date): number {
 export function canRenew(activeExpiry: Date | null, now: Date, unlockDays: number): boolean {
   if (!activeExpiry) return true
   return daysUntil(activeExpiry, now) <= unlockDays
+}
+
+/**
+ * ÚNICA fonte da verdade do gate de acesso por estado de assinatura:
+ *  - `trial`     → libera (teste grátis ativo) enquanto expiraEm > now
+ *  - `active`    → libera enquanto expiraEm > now
+ *  - `cancelled` → libera SÓ até o fim do período já pago (expiraEm > now); cancelou mas pagou até lá
+ *  - `past_due`  → BLOQUEIA (cobrança recorrente falhou) — fora de ACCESS_STATUSES
+ *  - `expired`   → BLOQUEIA — fora de ACCESS_STATUSES
+ */
+export function hasAccess(status: string, expiraEm: Date | null, now: Date): boolean {
+  if (!expiraEm) return false
+  return (ACCESS_STATUSES as readonly string[]).includes(status) && expiraEm.getTime() > now.getTime()
 }
 
 /** Separa nome completo em firstName/lastName (normaliza espaços; nome único repete no sobrenome p/ o MP). */

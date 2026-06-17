@@ -92,6 +92,20 @@ export async function sendExpirationWarningEmail(to: string, name: string, daysL
 
 const fmtDate = (d: Date) => d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })
 
+/** Início do trial: cria senha + deixa explícito quando/quanto cobra e como cancelar (anti-chargeback). */
+export async function sendTrialStartedEmail(to: string, name: string, setPasswordLink: string, firstChargeDate: Date) {
+  const subject = 'Seu teste grátis de 2 dias começou — BetV'
+  const html = `
+    <h1>Bem-vindo, ${name}!</h1>
+    <p>Seu teste grátis de 2 dias está ativo. Falta só criar sua senha para entrar:</p>
+    <a href="${setPasswordLink}">Criar minha senha</a>
+    <p>Depois do teste, cobramos <strong>R$ 14,90</strong> em <strong>${fmtDate(firstChargeDate)}</strong> e seguimos mensalmente. Você pode cancelar quando quiser, sem pegadinha, em ${process.env.APP_URL}/conta.</p>
+    <p style="color:#666;font-size:12px">Este link de senha expira em 24 horas. Conteúdo informativo, não é recomendação de aposta. 18+.</p>
+  `
+  if (isMock) return log('trial-started', to, subject)
+  await resend!.emails.send({ from: fromAddress, to, subject, html })
+}
+
 /** Anti-chargeback: aviso na manhã do 2º dia, ANTES da 1ª cobrança. */
 export async function sendTrialPreChargeEmail(to: string, name: string, chargeDate: Date, amount: number) {
   const subject = 'Seu teste grátis termina amanhã — BetV'

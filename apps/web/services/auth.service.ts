@@ -1,7 +1,8 @@
 import { db, schema } from '@/lib/db'
 const { users, authTokens, subscriptions } = schema
-import { eq, and, gt } from 'drizzle-orm'
+import { eq, and, gt, inArray, desc } from 'drizzle-orm'
 import { randomBytes } from 'crypto'
+import { ACCESS_STATUSES } from '@betv/shared'
 
 let argon2: typeof import('argon2') | null = null
 async function getArgon2() {
@@ -27,6 +28,8 @@ export async function getUserById(id: string) {
   return user?.deletadoEm ? null : user ?? null
 }
 
+// Acesso = status em ACCESS_STATUSES (trial/active/cancelled-até-vencer) E expiraEm no futuro.
+// past_due/expired ficam de fora → bloqueiam. Pega o passe mais recente (orderBy desc).
 export async function getActiveSubscription(userId: string) {
   const [sub] = await db
     .select()
@@ -34,10 +37,11 @@ export async function getActiveSubscription(userId: string) {
     .where(
       and(
         eq(subscriptions.userId, userId),
-        eq(subscriptions.status, 'active'),
+        inArray(subscriptions.status, ACCESS_STATUSES as unknown as string[]),
         gt(subscriptions.expiraEm, new Date())
       )
     )
+    .orderBy(desc(subscriptions.expiraEm))
     .limit(1)
   return sub ?? null
 }

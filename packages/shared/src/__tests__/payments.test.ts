@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { calcFee, netReceived, computeNewExpiry, canRenew, splitName } from '../payments'
+import { calcFee, netReceived, computeNewExpiry, canRenew, splitName, hasAccess } from '../payments'
 import { SUBSCRIPTION_PRICE_BRL, SUBSCRIPTION_DAYS } from '../constants'
 
 const BASE = SUBSCRIPTION_PRICE_BRL // 14.90
@@ -52,6 +52,27 @@ describe('canRenew (janela de renovação)', () => {
   it('faltam 5 dias → NÃO pode', () => expect(canRenew(new Date('2026-06-21T12:00:00Z'), now, 2)).toBe(false))
   it('faltam 2 dias → pode', () => expect(canRenew(new Date('2026-06-18T12:00:00Z'), now, 2)).toBe(true))
   it('já expirado → pode', () => expect(canRenew(new Date('2026-06-10T12:00:00Z'), now, 2)).toBe(true))
+})
+
+describe('hasAccess (gate único estado→acesso)', () => {
+  const now = new Date('2026-06-16T12:00:00Z')
+  const future = new Date('2026-07-01T12:00:00Z')
+  const past = new Date('2026-06-01T12:00:00Z')
+
+  it('trial/active/cancelled com expiraEm no futuro → libera (cancelado mantém até vencer)', () => {
+    expect(hasAccess('trial', future, now)).toBe(true)
+    expect(hasAccess('active', future, now)).toBe(true)
+    expect(hasAccess('cancelled', future, now)).toBe(true)
+  })
+  it('past_due e expired → BLOQUEIam mesmo com expiraEm futuro', () => {
+    expect(hasAccess('past_due', future, now)).toBe(false)
+    expect(hasAccess('expired', future, now)).toBe(false)
+  })
+  it('qualquer estado com expiraEm vencido → bloqueia', () => {
+    expect(hasAccess('active', past, now)).toBe(false)
+    expect(hasAccess('cancelled', past, now)).toBe(false)
+  })
+  it('sem expiraEm → bloqueia', () => expect(hasAccess('active', null, now)).toBe(false))
 })
 
 describe('splitName', () => {
