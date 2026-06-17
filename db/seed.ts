@@ -2,7 +2,7 @@ import pg from 'pg'
 import { drizzle } from 'drizzle-orm/node-postgres'
 import { sql } from 'drizzle-orm'
 import * as schema from '../packages/shared/src/db/schema'
-import { isSportmonksMode } from '../packages/shared/src/constants'
+import { isSportmonksMode, SUBSCRIPTION_PRICE_BRL } from '../packages/shared/src/constants'
 import * as argon2 from 'argon2'
 
 const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://betv:betv_secret@localhost:5432/betv'
@@ -63,7 +63,18 @@ async function seed() {
       inicioEm: now,
       expiraEm: expiry,
     })
-    console.log(`User created: ${user.email} (subscription active 45 days)`)
+    // Pagamento coerente com a assinatura: passe avulso ativo = 1 cobrança PIX aprovada.
+    // Roda só na criação do usuário (insert acima é onConflictDoNothing), logo é idempotente.
+    await db.insert(schema.payments).values({
+      userId: user.id,
+      amount: SUBSCRIPTION_PRICE_BRL,
+      status: 'approved',
+      method: 'pix',
+      mpPaymentId: 'seed-pix-approved',
+      paidAt: now,
+      criadoEm: now,
+    })
+    console.log(`User created: ${user.email} (passe avulso ativo, 45 dias, 1 PIX aprovado)`)
   }
 
   // In sportmonks mode the provider populates teams/fixtures/odds, so the mock sport

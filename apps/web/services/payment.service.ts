@@ -17,6 +17,11 @@ import { mintPaymentSubToken } from '@/lib/checkout-session'
 
 const { payments, subscriptions, users, paymentCards } = schema
 
+/** Histórico de pagamentos do usuário (mais recentes primeiro) — fonte da tela /conta. */
+export function getAccountPayments(userId: string) {
+  return db.select().from(payments).where(eq(payments.userId, userId)).orderBy(desc(payments.criadoEm))
+}
+
 const SET_PASSWORD_TOKEN_TYPE = 'set_password'
 const SET_PASSWORD_TTL_MS = 24 * 60 * 60 * 1000
 

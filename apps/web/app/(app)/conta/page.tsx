@@ -3,9 +3,11 @@
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { animate, utils } from 'animejs'
+import { Receipt2 } from 'iconsax-reactjs'
 import { SUBSCRIPTION_DAYS, RENEWAL_UNLOCK_DAYS, RECURRING_AMOUNT_BRL } from '@betv/shared'
 import { AppHeader } from '@/components/layout/app-header'
 import { GlassCard } from '@/components/ui/glass-card'
+import { EmptyState } from '@/components/ui/empty-state'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { useCountUp } from '@/hooks/use-count-up'
@@ -90,8 +92,10 @@ export default function ContaPage() {
   return (
     <>
       <AppHeader title="Minha Conta" userName={user?.name} />
-      <div className="flex flex-col gap-5 px-8 max-w-2xl animate-screenIn">
-        {isRecurring ? (
+      <div className="grid grid-cols-1 gap-5 px-8 max-w-5xl animate-screenIn lg:grid-cols-2 lg:items-start">
+        {/* coluna A: assinatura/passe + uso */}
+        <div className="flex flex-col gap-5">
+          {isRecurring ? (
           <GlassCard>
             <div className="flex flex-col gap-3">
               <div className="flex items-center gap-3">
@@ -189,7 +193,10 @@ export default function ContaPage() {
             </div>
           </div>
         </GlassCard>
+        </div>
 
+        {/* coluna B: perfil + histórico */}
+        <div className="flex flex-col gap-5">
         <GlassCard>
           <div className="flex flex-col gap-4">
             <h3 className="text-xs font-bold tracking-widest text-text-muted uppercase">Perfil</h3>
@@ -213,21 +220,29 @@ export default function ContaPage() {
           <div className="flex flex-col gap-3">
             <h3 className="text-xs font-bold tracking-widest text-text-muted uppercase">Histórico de pagamentos</h3>
             {(!payments || payments.length === 0) ? (
-              <p className="text-sm text-text-muted">Nenhum pagamento registrado.</p>
+              <EmptyState
+                icon={<Receipt2 size={28} variant="Linear" color="currentColor" aria-hidden="true" />}
+                title="Nenhum pagamento ainda"
+                description="Seus pagamentos aparecem aqui assim que você ativar ou renovar o BetV."
+              />
             ) : payments.map((p: any) => (
               <div key={p.id} className="flex items-center gap-3 py-2 border-b border-border-subtle">
                 <span className="shrink-0 font-mono text-[11px] text-text-muted">{new Date(p.criadoEm).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</span>
-                <span className="min-w-0 flex-1 truncate text-sm text-text-primary">Passe 45 dias</span>
+                <span className="min-w-0 flex-1 truncate text-sm text-text-primary">
+                  <span className="sm:hidden">Passe 45d</span>
+                  <span className="hidden sm:inline">Passe 45 dias</span>
+                </span>
                 <span className="shrink-0 whitespace-nowrap font-mono text-sm font-semibold tabular-nums text-accent-green-text">{brl(p.amount ?? 0)}</span>
-                <span className={`shrink-0 rounded-pill px-2 py-0.5 text-[10px] font-bold tracking-wider ${pagamentoStatusClass(p.status)}`}>
+                <span className={`shrink-0 min-w-[68px] rounded-pill px-2 py-0.5 text-center text-[10px] font-bold tracking-wider ${pagamentoStatusClass(p.status)}`}>
                   {pagamentoStatusLabel(p.status)}
                 </span>
               </div>
             ))}
           </div>
         </GlassCard>
+        </div>
 
-        <GlassCard className="border-accent-red/20">
+        <GlassCard className="border-accent-red/20 lg:col-span-2">
           <div className="flex flex-col gap-3">
             <h3 className="text-xs font-bold tracking-widest text-accent-red uppercase">Zona de perigo</h3>
             <p className="text-sm text-text-secondary">
