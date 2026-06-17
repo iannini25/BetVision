@@ -165,6 +165,48 @@ export function PaymentSuccess({ name, renew }: { name: string; renew: boolean }
   )
 }
 
+export function TrialActive({
+  name,
+  trialEndsAt,
+  setPasswordToken,
+}: {
+  name: string
+  trialEndsAt: Date
+  setPasswordToken?: string
+}) {
+  const markRef = useSpringIn(true)
+  const headingRef = useRef<HTMLHeadingElement>(null)
+  useLayoutEffect(() => {
+    headingRef.current?.focus()
+  }, [])
+  const ola = name ? `, ${name}` : ''
+
+  return (
+    <div className="flex flex-col items-center gap-4 text-center" role="status" aria-live="polite">
+      <div ref={markRef} className="text-accent-green-text">
+        <TickCircle size={56} variant="Bold" color="currentColor" aria-hidden="true" />
+      </div>
+      <h2 ref={headingRef} tabIndex={-1} className="font-display text-2xl font-extrabold outline-none">
+        Seu teste começou{ola}!
+      </h2>
+      <p className="text-text-secondary">
+        Aproveite o BetV grátis até <strong className="text-text-primary">{fmtDate(trialEndsAt)}</strong>. Sem cobrança até lá —
+        e você pode cancelar quando quiser, em 1 clique, na sua conta.
+      </p>
+
+      {setPasswordToken ? (
+        <Link href={`/criar-senha/${setPasswordToken}`} className="w-full max-w-xs">
+          <Button fullWidth>Criar minha senha e entrar</Button>
+        </Link>
+      ) : (
+        <Link href="/hoje" className="w-full max-w-xs">
+          <Button fullWidth>Começar a usar</Button>
+        </Link>
+      )}
+    </div>
+  )
+}
+
 export function PaymentRejected({ onRetry }: { onRetry: () => void }) {
   return (
     <div className="flex flex-col items-center gap-4 text-center" role="alert">

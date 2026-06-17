@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { animate, utils } from 'animejs'
-import { SUBSCRIPTION_DAYS, RENEWAL_UNLOCK_DAYS } from '@betv/shared'
+import { SUBSCRIPTION_DAYS, RENEWAL_UNLOCK_DAYS, RECURRING_AMOUNT_BRL } from '@betv/shared'
 import { AppHeader } from '@/components/layout/app-header'
 import { GlassCard } from '@/components/ui/glass-card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -14,11 +14,25 @@ import { useSession } from '@/hooks/use-session'
 import { useQuery } from '@tanstack/react-query'
 
 export default function ContaPage() {
-  const { session, loading: sessionLoading, logout } = useSession()
+  const { session, loading: sessionLoading, logout, refresh } = useSession()
   const user = session?.user
   const daysRemaining = session?.daysRemaining ?? 0
   const progress = Math.min(1, daysRemaining / SUBSCRIPTION_DAYS)
   const canRenew = daysRemaining <= RENEWAL_UNLOCK_DAYS
+
+  const sub = session?.subscription
+  const isRecurring = sub?.type === 'recorrente_cartao'
+  const [cancelling, setCancelling] = useState(false)
+  async function handleCancel() {
+    if (!window.confirm('Cancelar sua assinatura? Você mantém o acesso até o fim do período já pago.')) return
+    setCancelling(true)
+    try {
+      const res = await fetch('/api/conta/cancelar', { method: 'POST' })
+      if (res.ok) await refresh()
+    } finally {
+      setCancelling(false)
+    }
+  }
 
   const daysRef = useCountUp<HTMLSpanElement>(daysRemaining)
   const reduced = useReducedMotion()
@@ -77,51 +91,93 @@ export default function ContaPage() {
     <>
       <AppHeader title="Minha Conta" userName={user?.name} />
       <div className="flex flex-col gap-5 px-8 max-w-2xl animate-screenIn">
-        <GlassCard>
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center gap-3">
-              <span className="text-xs font-bold tracking-widest text-text-muted uppercase">Passe BetV</span>
-              <span className={`ml-auto rounded-pill px-3 py-1 text-xs font-bold ${
-                session?.hasActiveSubscription
-                  ? 'bg-[rgba(34,197,94,0.10)] border border-[rgba(34,197,94,0.35)] text-accent-green-text'
-                  : 'bg-[rgba(251,77,109,0.10)] border border-[rgba(251,77,109,0.35)] text-accent-red'
-              }`}>
-                {session?.hasActiveSubscription ? 'ATIVO' : 'EXPIRADO'}
-              </span>
-            </div>
-            <div className="flex items-baseline gap-2">
-              <span ref={daysRef} className="font-display font-extrabold text-[42px] tabular-nums text-accent-green-text">0</span>
-              <span className="text-sm text-text-secondary">dias restantes</span>
-            </div>
-            <div
-              className="h-2 rounded-full bg-bg-subtle overflow-hidden"
-              role="progressbar"
-              aria-valuemin={0}
-              aria-valuemax={SUBSCRIPTION_DAYS}
-              aria-valuenow={daysRemaining}
-            >
-              <div
-                ref={barRef}
-                className="h-full w-full origin-left rounded-full bg-brand-gradient will-change-transform"
-                style={{ transform: 'scaleX(0)' }}
-              />
-            </div>
-            <div className="flex flex-col gap-1 pt-1">
-              {canRenew ? (
-                <Link href="/renovar" className="self-start">
-                  <Button size="sm">Renovar passe</Button>
-                </Link>
-              ) : (
-                <>
-                  <Button size="sm" disabled className="self-start">Renovar passe</Button>
-                  <p role="note" className="text-xs text-text-muted">
-                    A renovação abre quando faltarem {RENEWAL_UNLOCK_DAYS} dias para expirar.
-                  </p>
-                </>
+        {isRecurring ? (
+          <GlassCard>
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-bold tracking-widest text-text-muted uppercase">Assinatura BetV</span>
+                <span className={`ml-auto rounded-pill px-3 py-1 text-xs font-bold ${
+                  sub?.status === 'cancelled'
+                    ? 'border border-border-subtle bg-bg-subtle text-text-muted'
+                    : 'border border-[rgba(34,197,94,0.35)] bg-[rgba(34,197,94,0.10)] text-accent-green-text'
+                }`}>
+                  {sub?.status === 'trial' ? 'TESTE GRÁTIS' : sub?.status === 'cancelled' ? 'CANCELADA' : 'ATIVA'}
+                </span>
+              </div>
+
+              {sub?.status === 'trial' && (
+                <p className="text-sm text-text-secondary">
+                  Teste grátis até <strong className="text-text-primary">{fmtDate(sub.trialEndsAt)}</strong>. Primeira cobrança em{' '}
+                  <strong className="text-text-primary">{fmtDate(sub.nextChargeAt)}</strong> · {brl(RECURRING_AMOUNT_BRL)}/mês.
+                </p>
+              )}
+              {sub?.status === 'active' && (
+                <p className="text-sm text-text-secondary">
+                  Assinatura ativa · próxima cobrança em <strong className="text-text-primary">{fmtDate(sub.nextChargeAt)}</strong> ·{' '}
+                  {brl(RECURRING_AMOUNT_BRL)}/mês.
+                </p>
+              )}
+              {sub?.status === 'cancelled' && (
+                <p className="text-sm text-text-secondary">
+                  Cancelada — sem novas cobranças. Você mantém o acesso até{' '}
+                  <strong className="text-text-primary">{fmtDate(session?.expiresAt ?? null)}</strong>.
+                </p>
+              )}
+
+              {(sub?.status === 'trial' || sub?.status === 'active') && (
+                <Button size="sm" variant="secondary" loading={cancelling} onClick={handleCancel} className="self-start">
+                  Cancelar assinatura
+                </Button>
               )}
             </div>
-          </div>
-        </GlassCard>
+          </GlassCard>
+        ) : (
+          <GlassCard>
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-bold tracking-widest text-text-muted uppercase">Passe BetV</span>
+                <span className={`ml-auto rounded-pill px-3 py-1 text-xs font-bold ${
+                  session?.hasActiveSubscription
+                    ? 'bg-[rgba(34,197,94,0.10)] border border-[rgba(34,197,94,0.35)] text-accent-green-text'
+                    : 'bg-[rgba(251,77,109,0.10)] border border-[rgba(251,77,109,0.35)] text-accent-red'
+                }`}>
+                  {session?.hasActiveSubscription ? 'ATIVO' : 'EXPIRADO'}
+                </span>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span ref={daysRef} className="font-display font-extrabold text-[42px] tabular-nums text-accent-green-text">0</span>
+                <span className="text-sm text-text-secondary">dias restantes</span>
+              </div>
+              <div
+                className="h-2 rounded-full bg-bg-subtle overflow-hidden"
+                role="progressbar"
+                aria-valuemin={0}
+                aria-valuemax={SUBSCRIPTION_DAYS}
+                aria-valuenow={daysRemaining}
+              >
+                <div
+                  ref={barRef}
+                  className="h-full w-full origin-left rounded-full bg-brand-gradient will-change-transform"
+                  style={{ transform: 'scaleX(0)' }}
+                />
+              </div>
+              <div className="flex flex-col gap-1 pt-1">
+                {canRenew ? (
+                  <Link href="/renovar" className="self-start">
+                    <Button size="sm">Renovar passe</Button>
+                  </Link>
+                ) : (
+                  <>
+                    <Button size="sm" disabled className="self-start">Renovar passe</Button>
+                    <p role="note" className="text-xs text-text-muted">
+                      A renovação abre quando faltarem {RENEWAL_UNLOCK_DAYS} dias para expirar.
+                    </p>
+                  </>
+                )}
+              </div>
+            </div>
+          </GlassCard>
+        )}
 
         <GlassCard>
           <div className="flex flex-col gap-4">
@@ -190,6 +246,11 @@ export default function ContaPage() {
       </div>
     </>
   )
+}
+
+const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+function fmtDate(d: string | null | undefined): string {
+  return d ? new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' }) : '—'
 }
 
 function UsageStat({ label, value }: { label: string; value?: number }) {

@@ -2,11 +2,20 @@
 
 import { useEffect, useState, useCallback } from 'react'
 
+type Subscription = {
+  type: string
+  status: string
+  nextChargeAt: string | null
+  trialEndsAt: string | null
+  cancelledAt: string | null
+}
+
 type SessionData = {
   user: { id: string; name: string; email: string } | null
   hasActiveSubscription: boolean
   expiresAt: string | null
   daysRemaining: number
+  subscription?: Subscription | null
 }
 
 export function useSession() {

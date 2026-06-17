@@ -1,25 +1,29 @@
 'use client'
 
-import dynamic from 'next/dynamic'
 import { useState } from 'react'
 import Link from 'next/link'
-import { useQuery } from '@tanstack/react-query'
 import type { PaymentMethod } from '@betv/shared'
 import { useCheckout, type BrickFormData } from '@/lib/mp/use-checkout'
-import { MockCheckout } from './mock-checkout'
-import { PaymentPending, PaymentSuccess, PaymentRejected, PaymentAnalysis } from './payment-states'
+import { MethodChoice, CardPlanChoice } from './checkout-method'
+import { PixPanel, CardNowPanel, TrialPanel } from './checkout-panels'
+import { PaymentPending, PaymentSuccess, PaymentRejected, PaymentAnalysis, TrialActive } from './payment-states'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 
-const BrickCheckout = dynamic(() => import('./brick-checkout'), {
-  ssr: false,
-  loading: () => <Skeleton className="h-64 w-full rounded-card" />,
-})
+type Step = 'method' | 'pix' | 'card-plan' | 'card-now' | 'trial'
+type TrialResult = { trialEndsAt: string; setPasswordToken?: string }
 
+/**
+ * Funil de pagamento (sem regra de negócio — só orquestra):
+ *   método (PIX × Cartão) → PIX | [cartão: pagar agora × 2 dias grátis] → form → estado.
+ * `renew` (avulso vencido) pula o trial: cartão vai direto pra "pagar agora".
+ */
 export function CheckoutClient({ renew = false }: { renew?: boolean }) {
   const { mock, publicKey, name, loading, meReady, snapshot, paymentId, createPayment, reset } = useCheckout({ renew })
+  const [step, setStep] = useState<Step>('method')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [trial, setTrial] = useState<TrialResult | null>(null)
 
   async function pay(method: PaymentMethod, form: BrickFormData) {
     setSubmitting(true)
@@ -33,19 +37,43 @@ export function CheckoutClient({ renew = false }: { renew?: boolean }) {
     }
   }
 
-  // Acompanhando um pagamento (recém-criado ou retomado por refresh / ?pid=).
+  async function subscribe(cardToken: string) {
+    setSubmitting(true)
+    setError('')
+    try {
+      const res = await fetch('/api/mp/assinar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cardToken, consent: { accepted: true } }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setError(data.error || 'Não foi possível iniciar o teste')
+        return
+      }
+      setTrial({ trialEndsAt: data.trialEndsAt, setPasswordToken: data.setPasswordToken })
+    } catch {
+      setError('Não foi possível iniciar o teste')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  // --- estados finais ---
+  if (trial) return <TrialActive name={name} trialEndsAt={new Date(trial.trialEndsAt)} setPasswordToken={trial.setPasswordToken} />
+
   if (paymentId) {
     if (!snapshot) return <Skeleton className="h-64 w-full rounded-card" />
     if (snapshot.status === 'approved') return <PaymentSuccess name={name} renew={renew} />
-    if (snapshot.status === 'rejected' || snapshot.status === 'cancelled') return <PaymentRejected onRetry={reset} />
+    if (snapshot.status === 'rejected' || snapshot.status === 'cancelled')
+      return <PaymentRejected onRetry={() => { reset(); setStep('method') }} />
     if (snapshot.status === 'in_process') return <PaymentAnalysis />
     return <PaymentPending snapshot={snapshot} mock={!!mock} />
   }
 
   if (loading || mock === null) return <Skeleton className="h-64 w-full rounded-card" />
 
-  // Sem cadastro/sessão não há ator para criar o pagamento — guia o usuário ao cadastro.
-  // Só decide depois que /api/mp/me respondeu (evita flash de "ir para cadastro").
+  // Sem cadastro/sessão não há ator — guia ao cadastro (só após /api/mp/me responder).
   if (!renew && meReady && !name) {
     return (
       <div className="flex flex-col items-center gap-4 text-center">
@@ -57,57 +85,22 @@ export function CheckoutClient({ renew = false }: { renew?: boolean }) {
     )
   }
 
-  if (mock)
+  // --- funil ---
+  if (step === 'method') return <MethodChoice onPix={() => setStep('pix')} onCard={() => setStep(renew ? 'card-now' : 'card-plan')} />
+  if (step === 'pix') return <PixPanel onPay={(f) => pay('pix', f)} submitting={submitting} error={error} onBack={() => setStep('method')} />
+  if (step === 'card-plan') return <CardPlanChoice onNow={() => setStep('card-now')} onTrial={() => setStep('trial')} onBack={() => setStep('method')} />
+  if (step === 'card-now')
     return (
-      <div className="flex flex-col gap-4">
-        {renew && <SavedCardOneClick onPay={pay} submitting={submitting} />}
-        <MockCheckout onPay={pay} submitting={submitting} error={error} />
-      </div>
+      <CardNowPanel
+        mock={!!mock}
+        publicKey={publicKey || ''}
+        onPay={(f) => pay('credit', f)}
+        onError={setError}
+        submitting={submitting}
+        error={error}
+        onBack={() => setStep(renew ? 'method' : 'card-plan')}
+      />
     )
-
-  return (
-    <div className="flex flex-col gap-4">
-      {error && <p role="alert" className="text-sm text-accent-red">{error}</p>}
-      <BrickCheckout publicKey={publicKey || ''} onPay={pay} onError={setError} />
-    </div>
-  )
-}
-
-type SavedCard = { id: string; lastFour: string; brand: string }
-
-// Renovação 1-clique com cartão salvo (demonstrável no mock; no real o Brick usa o cartão do customer
-// pedindo o CVV no campo seguro do MP).
-function SavedCardOneClick({
-  onPay,
-  submitting,
-}: {
-  onPay: (method: PaymentMethod, form: BrickFormData) => void
-  submitting: boolean
-}) {
-  const { data } = useQuery({
-    queryKey: ['saved-cards'],
-    queryFn: async () => {
-      const r = await fetch('/api/conta/cartoes')
-      if (!r.ok) return { cards: [] as SavedCard[] }
-      return (await r.json()) as { cards: SavedCard[] }
-    },
-  })
-  const cards = data?.cards ?? []
-  if (!cards.length) return null
-
-  return (
-    <div className="flex flex-col gap-2">
-      {cards.map((c) => (
-        <Button
-          key={c.id}
-          variant="secondary"
-          loading={submitting}
-          onClick={() => onPay('credit', { token: `mock-${c.id}` })}
-        >
-          Renovar com {c.brand} •••• {c.lastFour} (1 clique)
-        </Button>
-      ))}
-      <p className="text-center text-xs text-text-muted">ou escolha outra forma abaixo</p>
-    </div>
-  )
+  if (step === 'trial') return <TrialPanel mock={!!mock} onSubscribe={subscribe} submitting={submitting} error={error} onBack={() => setStep('card-plan')} />
+  return null
 }

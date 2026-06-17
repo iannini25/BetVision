@@ -31,7 +31,7 @@ export class PaymentRateLimitError extends Error {
   }
 }
 
-/** Forma do que o Payment Brick devolve no onSubmit (o mock-checkout produz a mesma forma). */
+/** Forma do que o Payment Brick devolve no onSubmit (os painéis mock produzem a mesma forma). */
 export type BrickFormData = {
   token?: string
   payment_method_id?: string

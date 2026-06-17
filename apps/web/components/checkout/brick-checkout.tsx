@@ -21,10 +21,13 @@ export default function BrickCheckout({
   publicKey,
   onPay,
   onError,
+  cardOnly = false,
 }: {
   publicKey: string
   onPay: (method: PaymentMethod, form: BrickFormData) => Promise<void> | void
   onError: (message: string) => void
+  /** Após a bifurcação "cartão", restringe o Brick a cartão (sem PIX/boleto/saldo) — clareza. */
+  cardOnly?: boolean
 }) {
   const initedRef = useRef(false)
   useEffect(() => {
@@ -40,14 +43,10 @@ export default function BrickCheckout({
     <Payment
       initialization={{ amount: SUBSCRIPTION_PRICE_BRL }}
       customization={{
-        paymentMethods: {
-          creditCard: 'all',
-          debitCard: 'all',
-          ticket: 'all',
-          bankTransfer: 'all',
-          mercadoPago: 'all',
-          maxInstallments: 1,
-        },
+        // Após a bifurcação "cartão", restringe o Brick a cartão (sem PIX/boleto/saldo).
+        paymentMethods: cardOnly
+          ? { creditCard: 'all', debitCard: 'all', maxInstallments: 1 }
+          : { creditCard: 'all', debitCard: 'all', ticket: 'all', bankTransfer: 'all', mercadoPago: 'all', maxInstallments: 1 },
       }}
       onSubmit={async ({ selectedPaymentMethod, formData }: { selectedPaymentMethod: string; formData: BrickFormData }) => {
         await onPay(mapMethod(selectedPaymentMethod), formData)

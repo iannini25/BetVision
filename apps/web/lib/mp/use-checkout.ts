@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { PaymentMethod } from '@betv/shared'
 import { useRealtime } from '@/hooks/use-realtime'
 
-/** Mesma forma do onSubmit do Payment Brick (o mock-checkout produz idêntico). */
+/** Mesma forma do onSubmit do Payment Brick (os painéis mock produzem idêntico). */
 export type BrickFormData = {
   token?: string
   payment_method_id?: string
