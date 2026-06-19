@@ -11,13 +11,6 @@ coverage/
 .DS_Store
 Thumbs.db
 vendor/anime/.git
-<<<<<<< HEAD
-node_modules/
-.next/
-.env
 .claude/
 .agents/
 vendor/
-.DS_Store
-=======
->>>>>>> 3557dcb2ac0504581e21c78497a0ef4fd406f8a9

@@ -1,34 +1,21 @@
 import { z } from 'zod'
 import { isValidBrPhone } from './br-validators'
 
-<<<<<<< HEAD
 const emailSchema = z.string().trim().toLowerCase().email('E-mail inválido')
 
 export const loginSchema = z.object({
   email: emailSchema,
-=======
-export const loginSchema = z.object({
-  email: z.string().email('E-mail inválido'),
->>>>>>> 3557dcb2ac0504581e21c78497a0ef4fd406f8a9
   password: z.string().min(6, 'Mínimo 6 caracteres'),
 })
 
 export const registerSchema = z.object({
   name: z.string().min(2, 'Nome muito curto'),
-<<<<<<< HEAD
   email: emailSchema,
-=======
-  email: z.string().email('E-mail inválido'),
->>>>>>> 3557dcb2ac0504581e21c78497a0ef4fd406f8a9
   password: z.string().min(6, 'Mínimo 6 caracteres'),
 })
 
 export const forgotPasswordSchema = z.object({
-<<<<<<< HEAD
   email: emailSchema,
-=======
-  email: z.string().email('E-mail inválido'),
->>>>>>> 3557dcb2ac0504581e21c78497a0ef4fd406f8a9
 })
 
 export const resetPasswordSchema = z.object({
@@ -60,11 +47,7 @@ export const createPaymentSchema = z.object({
 
 export const cadastroSchema = z.object({
   name: z.string().trim().min(2, 'Informe seu nome completo'),
-<<<<<<< HEAD
   email: emailSchema,
-=======
-  email: z.string().email('E-mail inválido'),
->>>>>>> 3557dcb2ac0504581e21c78497a0ef4fd406f8a9
   phone: z.string().refine(isValidBrPhone, 'Telefone inválido — use (DDD) e o número completo'),
   over18: z.boolean().refine((v) => v === true, 'Você precisa ter 18 anos ou mais'),
 })

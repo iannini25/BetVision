@@ -30,6 +30,18 @@ Este arquivo e o changelog tecnico simples do time. Use para explicar mudancas d
 
 ## Historico
 
+### 2026-06-18 22:06:41 -03:00 - Codex
+
+**Resumo:** Removidos os marcadores de conflito de merge que ainda deixavam o codigo invalido.
+
+**Motivo:** O commit `599bfb8` (`Resolve conflitos de merge`) foi enviado ao `origin/main` com marcadores de conflito. O ultimo bloco restante estava no `cadastroSchema` de `packages/shared/src/schemas.ts`.
+
+**Arquivos/areas:** `packages/shared/src/schemas.ts`; resolucoes ja presentes no working tree em `.env.example`, `.gitignore`, `apps/web/lib/db.ts`, `apps/web/services/auth.service.ts` e `pnpm-workspace.yaml`.
+
+**Validacao:** Nenhum marcador encontrado na busca global; `git diff --check` passou; `pnpm.cmd typecheck` passou; 56 testes de `packages/shared` passaram.
+
+**Pendencias:** Criar um commit corretivo com os seis arquivos resolvidos, `CONTEXTOEQUIPE.md` e `ALTERACOES.md`, e enviar para `origin/main`.
+
 ### 2026-06-18 21:09:08 -03:00 - Codex
 
 **Resumo:** Corrigido o erro interno que impedia login com o usuario seed do sistema.

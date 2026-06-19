@@ -2,14 +2,11 @@ packages:
   - "apps/*"
   - "packages/*"
 
-<<<<<<< HEAD
 allowBuilds:
   argon2: false
   esbuild: false
   msgpackr-extract: false
 
-=======
->>>>>>> 3557dcb2ac0504581e21c78497a0ef4fd406f8a9
 onlyBuiltDependencies:
   - argon2
   - esbuild

@@ -11,12 +11,8 @@ async function getArgon2() {
 }
 
 export async function authenticateUser(email: string, password: string) {
-<<<<<<< HEAD
   const normalizedEmail = email.trim().toLowerCase()
   const [user] = await db.select().from(users).where(eq(users.email, normalizedEmail)).limit(1)
-=======
-  const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1)
->>>>>>> 3557dcb2ac0504581e21c78497a0ef4fd406f8a9
   if (!user || user.deletadoEm) return null
   // Usuário cadastro-first ainda sem senha (passwordHash vazio): não pode logar até criá-la.
   if (!user.passwordHash) return null

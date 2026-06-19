@@ -18,6 +18,14 @@ Arquivo de alinhamento para registrar decisoes, alteracoes e acoes relevantes no
 
 ## Historico
 
+### 2026-06-18 22:06:41 -03:00
+
+- Diagnosticado erro apos merge no commit `599bfb8` (`Resolve conflitos de merge`): o `origin/main` ainda continha marcadores `<<<<<<<`, `=======` e `>>>>>>>` em arquivos do projeto.
+- O working tree ja tinha removido a maior parte dos marcadores em `.env.example`, `.gitignore`, `apps/web/lib/db.ts`, `apps/web/services/auth.service.ts` e `pnpm-workspace.yaml`.
+- O Codex removeu o bloco restante em `packages/shared/src/schemas.ts`, preservando `email: emailSchema` no `cadastroSchema` para manter normalizacao com `trim()` e `toLowerCase()`.
+- Validacoes: busca global nao encontrou marcadores restantes; `git diff --check` passou; `pnpm.cmd typecheck` passou; testes de `packages/shared` passaram com 6 arquivos e 56 testes.
+- Pendencia para a equipe: criar e enviar um commit corretivo contendo os seis arquivos de resolucao e estes registros em `CONTEXTOEQUIPE.md` e `ALTERACOES.md`.
+
 ### 2026-06-18 21:13:39 -03:00
 
 - Criado `ALTERACOES.md` como changelog tecnico simples para Codex, Claude e devs humanos registrarem alteracoes de forma facil de entender.
