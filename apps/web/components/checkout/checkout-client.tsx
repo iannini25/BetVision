@@ -116,6 +116,16 @@ export function CheckoutClient({
         onBack={() => setStep(renew ? 'method' : 'card-plan')}
       />
     )
-  if (step === 'trial') return <TrialPanel mock={!!mock} onSubscribe={subscribe} submitting={submitting} error={error} onBack={() => setStep('card-plan')} />
+  if (step === 'trial')
+    return (
+      <TrialPanel
+        mock={!!mock}
+        publicKey={publicKey || ''}
+        onSubscribe={subscribe}
+        submitting={submitting}
+        error={error}
+        onBack={() => setStep('card-plan')}
+      />
+    )
   return null
 }

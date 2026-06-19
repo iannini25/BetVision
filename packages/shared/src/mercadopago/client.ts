@@ -232,13 +232,13 @@ export class RealMercadoPagoClient implements MercadoPagoClient {
     for (;;) {
       try {
         const res = await this.fetchWithTimeout(method, path, body, idempotencyKey)
-        const json = (await res.json().catch(() => ({}))) as { message?: string }
+        const json = (await res.json().catch(() => ({}))) as Record<string, unknown>
         if (res.status === 429 || res.status >= 500) {
-          if (attempt++ >= this.maxRetries) throw new MercadoPagoError(json.message || `MP ${res.status}`, res.status)
+          if (attempt++ >= this.maxRetries) throw this.mpError(method, path, res.status, json)
           await this.sleep(this.backoff(attempt))
           continue
         }
-        if (!res.ok) throw new MercadoPagoError(json.message || `MP HTTP ${res.status}`, res.status)
+        if (!res.ok) throw this.mpError(method, path, res.status, json)
         return json
       } catch (err) {
         // 4xx (≠429) é erro de cliente: não re-tentar nem mascarar.
@@ -279,6 +279,23 @@ export class RealMercadoPagoClient implements MercadoPagoClient {
   private backoff(attempt: number): number {
     const exp = Math.min(DEFAULTS.backoffCapMs, DEFAULTS.backoffBaseMs * 2 ** (attempt - 1))
     return exp / 2 + this.random() * (exp / 2)
+  }
+
+  /**
+   * Loga o corpo CRU do erro do MP (server-side) e extrai uma mensagem útil. Sem isto, um 500 do MP
+   * (que às vezes vem sem `message`, ex.: card_token inválido no /preapproval) virava só "MP 500" e a
+   * gente ficava cego. NUNCA logar o body de sucesso (pode ter dado sensível) — só erro.
+   */
+  private mpError(method: string, path: string, status: number, json: Record<string, unknown>): MercadoPagoError {
+    const causes = Array.isArray(json.cause)
+      ? (json.cause as Array<{ code?: unknown; description?: unknown }>)
+          .map((c) => c?.description ?? c?.code)
+          .filter(Boolean)
+          .join('; ')
+      : ''
+    const base = (json.message as string) || (json.error as string) || `MP ${status}`
+    console.error(`[MP] ${method} ${path} -> ${status}: ${JSON.stringify(json)}`)
+    return new MercadoPagoError(causes ? `${base} — ${causes}` : base, status)
   }
 }
 
