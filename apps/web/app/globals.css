@@ -1,0 +1,155 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Surfaces (dark to light) */
+  --bg-deep: #06080F;
+  --bg-panel: #0B0F1C;
+  --bg-card: #111729;
+  --bg-card-2: #18203A;
+
+  /* Compat aliases */
+  --bg-primary: var(--bg-deep);
+  --bg-secondary: var(--bg-panel);
+  --bg-subtle: var(--bg-card-2);
+
+  /* Text */
+  --text-hi: #F4F6FB;
+  --text-mid: #9AA3B8;
+  --text-low: #8893AC; /* WCAG AA: 5.78:1 on bg-card (#5F6B85 was 3.33:1, failing) */
+  --text-primary: var(--text-hi);
+  --text-secondary: var(--text-mid);
+  --text-muted: var(--text-low);
+
+  /* Brand — purple IS the identity */
+  --brand-1: #7C3AED;
+  --brand-2: #A855F7;
+  --brand-3: #D946EF;
+  --brand-soft: #A78BFA;
+  --brand-purple: var(--brand-1);
+  --brand-violet: var(--brand-2);
+  --brand-fuchsia: var(--brand-3);
+  --brand-light: var(--brand-soft);
+  --brand-gradient: linear-gradient(135deg, #7C3AED 0%, #A855F7 45%, #D946EF 100%);
+
+  /* Green — SURGICAL accent only (live, value, the dot) */
+  --accent: #22C55E;
+  --accent-hi: #4ADE80;
+  --accent-green: var(--accent);
+  --accent-green-text: var(--accent-hi);
+
+  /* Domain signals */
+  --warn: #FBBF24;
+  --info: #38BDF8;
+  --danger: #FB4D6D;
+  --accent-yellow: var(--warn);
+  --accent-red: var(--danger);
+  --accent-blue: var(--info);
+
+  /* Lines / borders */
+  --line: rgba(148, 163, 255, 0.10);
+  --line-strong: rgba(148, 163, 255, 0.18);
+  --border: var(--line);
+  --border-subtle: rgba(148, 163, 255, 0.08);
+  --border-hover: rgba(168, 85, 247, 0.25);
+  --border-input: rgba(148, 163, 255, 0.12);
+
+  /* Radius */
+  --radius-card: 18px;
+  --radius-button: 14px;
+  --radius-input: 12px;
+  --radius-pill: 999px;
+
+  /* Shadows */
+  --shadow-card: 0 14px 40px rgba(0, 0, 0, 0.45);
+  --shadow-glow-green: 0 0 16px rgba(34, 197, 94, 0.45);
+  --shadow-glow-brand: 0 0 10px rgba(168, 85, 247, 0.35);
+
+  /* Glass */
+  --glass-bg: rgba(139, 92, 246, 0.06);
+  --glass-blur: 12px;
+
+  /* Motion easings */
+  --ease-brand: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+body {
+  font-family: var(--font-body), 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: rgba(168, 85, 247, 0.35);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--bg-subtle);
+  border-radius: 8px;
+}
+
+html.lenis, html.lenis body {
+  height: auto;
+}
+
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+button {
+  font-family: inherit;
+}
+
+input {
+  font-family: inherit;
+}
+
+/* Keyboard focus must be visible everywhere (WCAG 2.4.7). Placed after @tailwind
+   utilities so it wins over inline `outline-none`; :focus-visible spares mouse clicks. */
+:focus-visible {
+  outline: 2px solid var(--brand-soft);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

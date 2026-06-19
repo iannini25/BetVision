@@ -1,0 +1,44 @@
+name: Deploy to VPS
+
+# Every push to main redeploys the stack on the VPS over SSH. Manual runs allowed.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Never run two deploys at once; let an in-flight deploy finish before the next.
+concurrency:
+  group: deploy-vps
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          command_timeout: 30m
+          script: |
+            set -euo pipefail
+            cd /opt/betv
+
+            echo "==> Sync code to origin/main"
+            git fetch --all --prune
+            git reset --hard origin/main
+
+            echo "==> Build + roll the stack (migrate one-shot gates web/realtime/agent)"
+            # up -d recreates only changed containers; Caddy stays up so downtime is a brief
+            # web/realtime swap. The migrate service (drizzle push --force + idempotent seed)
+            # runs to completion first via its service_completed_successfully gate.
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d --remove-orphans
+
+            echo "==> Prune dangling images"
+            docker image prune -f
+
+            echo "==> Final state"
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml ps

@@ -1,0 +1,79 @@
+# Production overlay — applied on top of docker-compose.yml on the VPS:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
+#
+# Why this file exists:
+#  - Docker publishes ports straight into iptables, BYPASSING ufw. So the debug
+#    port mappings in the base file (Postgres 5433, Redis 6380, Uptime 3001) would
+#    be reachable from the internet even with ufw allowing only 22/80/443.
+#    Here we unpublish Postgres/Redis entirely (reachable only on the compose network)
+#    and bind Uptime Kuma to loopback (reach it via SSH tunnel).
+#  - Injects the mock->real config (provider token, AI keys, Resend, Mercado Pago)
+#    from the VPS .env, so flipping to real data is purely an .env edit + redeploy.
+#
+# Requires Docker Compose v2.24+ for the !reset / !override merge directives.
+services:
+  # HTTPS em produção: abre 443 e diz ao Caddy quais domínios servir (gera cert Let's Encrypt).
+  # O 80 do base continua aberto (necessário para o desafio ACME e o redirect http->https).
+  caddy:
+    ports:
+      - "443:443"
+    environment:
+      - CADDY_SITE=${CADDY_SITE:-betv.online www.betv.online}
+
+  postgres:
+    ports: !reset []
+
+  redis:
+    ports: !reset []
+
+  uptime-kuma:
+    ports: !override
+      - "127.0.0.1:3001:3001"
+
+  # The seed gates mock sport-data on DATA_PROVIDER, so migrate needs the provider flag.
+  migrate:
+    environment:
+      - DATA_PROVIDER=${DATA_PROVIDER:-mock}
+      - SPORTMONKS_TOKEN=${SPORTMONKS_TOKEN:-}
+
+  web:
+    environment:
+      - APP_URL=${APP_URL:-https://betv.online}
+      - AUTH_SESSION_SECRET=${AUTH_SESSION_SECRET:?set AUTH_SESSION_SECRET in the VPS .env}
+      - DATA_PROVIDER=${DATA_PROVIDER:-mock}
+      - SPORTMONKS_TOKEN=${SPORTMONKS_TOKEN:-}
+      - AI_API_KEY=${AI_API_KEY:-}
+      - AI_MODEL_ANALYSIS=${AI_MODEL_ANALYSIS:-claude-opus-4-8}
+      - AI_MODEL_CHAT=${AI_MODEL_CHAT:-claude-sonnet-4-6}
+      - AI_EMBEDDING_MODEL=${AI_EMBEDDING_MODEL:-}
+      - RESEND_API_KEY=${RESEND_API_KEY:-}
+      - RESEND_FROM=${RESEND_FROM:-BetV <noreply@betv.online>}
+      - MP_ACCESS_TOKEN=${MP_ACCESS_TOKEN:-}
+      - MP_PUBLIC_KEY=${MP_PUBLIC_KEY:-}
+      - MP_WEBHOOK_SECRET=${MP_WEBHOOK_SECRET:-}
+      # Webhook mock fica DESLIGADO na VPS por padrão; só liga com ALLOW_MOCK_PAYMENTS=true no .env (demo).
+      - ALLOW_MOCK_PAYMENTS=${ALLOW_MOCK_PAYMENTS:-}
+
+  # Realtime verifica o token de assinatura da linha de pagamento — precisa do MESMO segredo do web.
+  realtime:
+    environment:
+      - AUTH_SESSION_SECRET=${AUTH_SESSION_SECRET:?set AUTH_SESSION_SECRET in the VPS .env}
+
+  agent:
+    environment:
+      - APP_URL=${APP_URL:-https://betv.online}
+      - DATA_PROVIDER=${DATA_PROVIDER:-mock}
+      - SPORTMONKS_TOKEN=${SPORTMONKS_TOKEN:-}
+      - WC_SEASON_ID=${WC_SEASON_ID:-26618}
+      - WC_LEAGUE_ID=${WC_LEAGUE_ID:-732}
+      - WORKER_PROFILE=${WORKER_PROFILE:-}
+      - AI_API_KEY=${AI_API_KEY:-}
+      - AI_MODEL_ANALYSIS=${AI_MODEL_ANALYSIS:-claude-opus-4-8}
+      - AI_MODEL_CHAT=${AI_MODEL_CHAT:-claude-sonnet-4-6}
+      - AI_EMBEDDING_MODEL=${AI_EMBEDDING_MODEL:-}
+      # OpenAI: fallback de resiliência da IA (vazio = desligado, Anthropic-only)
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_MODEL_ANALYSIS=${OPENAI_MODEL_ANALYSIS:-gpt-4o}
+      - OPENAI_MODEL_CHAT=${OPENAI_MODEL_CHAT:-gpt-4o-mini}
+      - RESEND_API_KEY=${RESEND_API_KEY:-}
+      - RESEND_FROM=${RESEND_FROM:-BetV <noreply@betv.online>}
