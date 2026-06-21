@@ -47,7 +47,11 @@ export const createPaymentSchema = z.object({
 
 export const cadastroSchema = z.object({
   name: z.string().trim().min(2, 'Informe seu nome completo'),
+<<<<<<< HEAD
   email: emailSchema,
+=======
+  email: z.string().email('E-mail inválido'),
+>>>>>>> 3557dcb2ac0504581e21c78497a0ef4fd406f8a9
   phone: z.string().refine(isValidBrPhone, 'Telefone inválido — use (DDD) e o número completo'),
   over18: z.boolean().refine((v) => v === true, 'Você precisa ter 18 anos ou mais'),
 })
