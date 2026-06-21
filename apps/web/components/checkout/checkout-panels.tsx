@@ -25,6 +25,11 @@ const BrickCheckout = dynamic(() => import('./brick-checkout'), {
   loading: () => <Skeleton className="h-64 w-full rounded-card" />,
 })
 
+const TrialCardBrick = dynamic(() => import('./trial-card-brick'), {
+  ssr: false,
+  loading: () => <Skeleton className="h-72 w-full rounded-card" />,
+})
+
 /** Linha de preço grande e limpa (taxa absorvida — R$14,90 fixo). */
 function PriceLine() {
   return (
@@ -136,16 +141,18 @@ export function CardNowPanel({
   )
 }
 
-/** 2 dias grátis (recorrente) — transparência RADICAL + consentimento explícito. */
+/** 2 dias grátis (recorrente) — transparência RADICAL + consentimento + tokenização real do cartão. */
 export function TrialPanel({
   mock,
+  publicKey,
   onSubscribe,
   submitting,
   error,
   onBack,
 }: {
   mock: boolean
-  onSubscribe: (cardToken: string) => void
+  publicKey: string
+  onSubscribe: (cardToken: string) => void | Promise<void>
   submitting: boolean
   error?: string
   onBack: () => void
@@ -154,6 +161,7 @@ export function TrialPanel({
   const [cpfError, setCpfError] = useState('')
   const [consent, setConsent] = useState(false)
   const [consentError, setConsentError] = useState(false)
+  const [brickError, setBrickError] = useState('')
 
   const firstCharge = new Date(Date.now() + TRIAL_DAYS * 86_400_000)
 
@@ -162,10 +170,11 @@ export function TrialPanel({
     if (checked) setConsentError(false)
   }
 
-  function start() {
+  // Mock: CPF simulado + token fake (o mock client aceita qualquer token). Real: token vem do Brick.
+  function startMock() {
     setCpfError('')
     let ok = true
-    if (mock && !isValidCpf(cpf)) {
+    if (!isValidCpf(cpf)) {
       setCpfError('CPF inválido')
       ok = false
     }
@@ -174,7 +183,6 @@ export function TrialPanel({
       ok = false
     }
     if (!ok) return
-    // Mock: token fake; Real: o token vem do CardPayment Brick (não implementado neste mock).
     onSubscribe('mock-card-token')
   }
 
@@ -217,14 +225,7 @@ export function TrialPanel({
         </ol>
       </div>
 
-      {mock ? (
-        <CpfField cpf={cpf} setCpf={setCpf} error={cpfError} />
-      ) : (
-        <p className="rounded-card border border-border-subtle bg-bg-card/40 p-3 text-xs text-text-muted">
-          O formulário seguro de cartão (Mercado Pago) aparece aqui quando a chave real está ativa.
-        </p>
-      )}
-
+      {/* Consentimento ANTES do cartão; no modo real o formulário de cartão só libera com o aceite. */}
       <div className="flex flex-col gap-1.5">
         <label
           className={`flex items-start gap-3 rounded-card border p-3 text-sm text-text-secondary cursor-pointer transition-colors ${
@@ -250,11 +251,30 @@ export function TrialPanel({
         )}
       </div>
 
-      {error && <p role="alert" className="text-sm text-accent-red">{error}</p>}
+      {(error || brickError) && <p role="alert" className="text-sm text-accent-red">{error || brickError}</p>}
 
-      <Button onClick={start} loading={submitting} fullWidth>
-        Começar meus {TRIAL_DAYS} dias grátis
-      </Button>
+      {mock ? (
+        <>
+          <CpfField cpf={cpf} setCpf={setCpf} error={cpfError} />
+          <Button onClick={startMock} loading={submitting} fullWidth>
+            Começar meus {TRIAL_DAYS} dias grátis
+          </Button>
+        </>
+      ) : consent ? (
+        <TrialCardBrick
+          publicKey={publicKey}
+          onToken={async (token) => {
+            setBrickError('')
+            await onSubscribe(token)
+          }}
+          onError={setBrickError}
+        />
+      ) : (
+        <p className="rounded-card border border-dashed border-border-subtle bg-white/[0.02] p-3 text-center text-xs text-text-muted">
+          Marque o aceite acima para liberar o formulário do cartão.
+        </p>
+      )}
+
       <p className="flex items-center justify-center gap-1.5 text-[11px] text-text-muted">
         <ShieldTick size={14} variant="Linear" color="currentColor" aria-hidden="true" />
         Sem cobrança hoje · cancele em 1 clique a qualquer momento
